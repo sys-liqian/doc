@@ -6,5 +6,6 @@
 
 ### 1.1 TCP的三次握手
 
-![image-20210203171632918](C:\Users\A\AppData\Roaming\Typora\typora-user-images\image-20210203171632918.png)
+![image-20210203171632918](.\image-storage\image-20210203171632918.png)
 
+第一次握手：建立
