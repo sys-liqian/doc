@@ -357,3 +357,218 @@ InnoDB：
 2. 2NF：不可把多种数据保存在同一张表中，即一张表只能描述一种数据，强调唯一性
 3. 3NF：消除字段冗余
 
+
+
+## 3. JVM
+
+### 3.1 java 如何实现平台无关性
+
+java源码汇编成字节码，字节码在不同平台上的jvm执行时，会由不同平台的jvm转换成具体平台上的机器指令
+
+
+
+### 3.2 为何不jvm不直接将源码解析成机器码执行
+
+检查工作：每次执行时需要进行语法检查，句法检查，需要重新编译
+
+兼容性：jvm可以执行其他语言生成的字节码，如ruby，若直接解析源码，则不能实现
+
+
+
+### 3.3 jvm组成部分
+
+![image-20210205162055891](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210205162055891.png)
+
+Class Loader : 依据特定命令加载class文件
+
+Execution Engine：对命令进行解析
+
+Native Interface： 本地接口，融合不同开发语言库为java所用
+
+Runtime Data Area： jvm内存空间模型
+
+
+
+### 3.4 什么是反射
+
+反射机制是指在运行状态时动态获取类的信息，以及动态调用类方法的功能称为反射
+
+eg：
+
+```java
+public class Robot{
+    private String name;
+    private void hello(String name){
+        System.out.println("hello " + name);
+    }
+}
+public class RobotTestCase{
+    public static void main(String[] args) throws Exception {
+        //Robot限定类名
+    	Class rc = Class.forName("com.xxx.Robot");
+        //动态获取对象
+        Robot robot = (Robot)rc.newInstance();
+        //动态获取方法
+        Method hello = rc.getDeclaredMethod("hello",String.class);
+        //修改私有方法访问权限
+        hello.setAccessible(true);
+        //动态调用
+        hello.invoke(robot,"张三");
+    }
+}
+```
+
+
+
+### 3.5 类装载过程
+
+1. 加载
+
+   通过一个类的全限定名来获取定义此类的class文件二进制字节流
+
+   将这个字节流代表的静态存储结构转换成方法区中的运行时数据结构
+
+   在堆中生成一个Class类对象，作为方法区和该类数据的访问入口
+
+2. 链接
+
+   1. 验证
+
+      确保被加载类的信息符合jvm规范，没有安全问题
+
+   2. 准备
+
+      为类的静态变量分配内存，并设置**默认值**（init 默认为0，String 默认为null，是指类型的默认值）
+
+   3. 解析
+
+      将常量池中的符号引用替换为直接引用（内存地址）
+
+      符号引用是指一组符号来描述目标，包括类和接口的全限定名、字段的名称和描述符、方法的名称和描述符
+
+3. 初始化
+
+   执行类构造器<clinit>()方法，该方法编译时生成与class文件中的，该方法作用是静态变量的初始化和静态代码块的执行（为静态变量赋**初始值**）
+
+   当类初始化时，若其父类没有初始化看，则需要先初始化其父类
+
+### 3.6  java程序初始化顺序
+
+1. 父类静态（静态变量，静态代码块）
+2. 子类静态（静态变量，静态代码块）
+3. 父类非静态（构造代码块，非静态成员变量）
+4. 父类构造函数
+5. 子类非静态（构造代码块，非静态成员变量）
+6. 子类构造函数
+
+
+
+### 3.7 谈谈ClassLoader
+
+ClassLoader的主要工作都在类装载的加载阶段，作用是获取class文件的二进制数据流，将二进制数据流装载进内存，然后由jvm进行链接，初始化等工作
+
+
+
+### 3.8 ClassLoader种类
+
+BootStrapClassLoader:  c++编写，加载核心库java.*
+
+ExtClassLoader:  java编写，加载扩展库javax.*
+
+AppClassLoader: java编写, 再在程序所在目录，即程序的classpath
+
+自定义ClassLoader: java编写，定制化加载
+
+
+
+### 3.9 ClassLoader的双亲委派机制
+
+1. 类加载器收到类加载请求
+2. 判断类是否已经被加载，若没有加载，把这个类委托父类加载器执行，一直向上委托直至BootStrapClassLoader
+3. BootStrapClassLoader检查自己是否能够加载（findClass()方法）,能加载则直接返回，否则抛出异常通知子加载器进行加载
+4. 重复步骤3
+
+优点：
+
+1.核心作用是防止恶意篡改java核心类库，比如你自己的String类，加载时BootStrapClassLoader已经加载， 就会直接结束，保护java核心类库
+
+2.防止字节码重复加载
+
+
+
+### 3.10 类的加载loadClass方法和Class.forName区别
+
+隐式加载：new()
+
+显示加载：loadClass(),Class.forName()
+
+loadClass方法加载的类只完成了装载的加载过程，并没有执行链接和初始化
+
+Class.forName加载的类已经完成了初始化
+
+
+
+### 3.11 JVM 内存模型-jdk8
+
+- 线程私有部分：
+
+  - 程序计数器：
+
+    当前程序所执行字节码的行号指示器（逻辑），改变计数器的值来获取下一条需要执行的字节码指令
+
+    每条线程需要独立的程序计数器，和线程一对一
+
+  - 虚拟机栈
+
+  - 本地方法栈
+
+- 线程共有部分：
+
+  - 元空间
+
+    java8元空间代替了永久代，元空间存储着类文件在jvm运行时数据结构以及Class相关内容
+
+  - 堆
+
+    对象实例分配区域，GC主要管理区域
+
+    
+
+    Jdk7之后字符串常量池从方法区被移动到了堆中
+
+    
+
+### 3.12元空间metaSpace对比永久代PermGen
+
+- 元空间使用的是本地内存，永久代使用的是jvm内存
+- 字符串常量池存在永久代中，容易出现性能问题和内存溢出
+- 类和方法信息大小难以确定，给永久代大小指定带来困难
+- 永久代会为GC带来不必要的复杂性
+
+
+
+### 3.13 jvm调优参数
+
+- -Xss : 规定每个线程虚拟机栈大小，一般256k足够
+- -Xms：规定堆初始大小
+- -Xmx：规定堆最大值
+
+
+
+### 3.14 jvm常见内存溢出问题
+
+- java.lang.OutOfMemoryError: Java heap space ----JVM Heap（堆）溢出
+
+  JVM在启动的时候会自动设置JVM Heap的值，其初始空间(即-Xms)是物理内存的	1/64，最大空间(-Xmx)不可超过物理内存。可以利用JVM提供的-Xmn -Xms -Xmx等选项可进行设置。Heap的大小是Young Generation 和Tenured Generaion 之和。
+
+  在JVM中如果98％的时间是用于GC，且可用的Heap size 不足2％的时候将抛出	此异常信息。
+
+- java.lang.OutOfMemoryError: PermGen space ---- PermGen space溢出
+
+  PermGen space的全称是Permanent Generation space，是指内存的永久保存区域。
+
+  为什么会内存溢出，这是由于这块内存主要是被JVM存放Class和Meta信息的，	Class在被Load的时候被放入PermGen space区域，它和存放Instance的Heap区	域不同,sun的 GC不会在主程序运行期对PermGen space进行清理，所以如果你的	APP会载入很多CLASS的话，就很可能出现PermGen space溢出。
+
+-  java.lang.StackOverflowError ---- 栈溢出
+
+  通常是程序错误，比如递归太多层数
