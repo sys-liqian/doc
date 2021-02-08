@@ -680,3 +680,469 @@ jvm有两种运行模式server以及client
 
   将整个java堆内存划分为多个大小相等的Region，新生代和老年代不在物理隔离，只是逻辑上进行区分
 
+
+
+## 5.多线程与并发
+
+### 5.1 进程、线程、协程的区别
+
+​	进程是资源分配的最小单位，线程是cpu调度的最小单位
+
+​	线程不能看做独立应用，而进程可看做独立应用
+
+​	进程有独立地址空间，线程没有独立的地址空间
+
+​	进程的切换比线程的切换开销大
+
+​	**协程是一种用户态的轻量级线程，**协程的调度完全由用户控制。协程和线程一样共享堆，不共享栈，协程由程		序员在协程的代码里显示调度。协程拥有自己的寄存器上下文和栈。协程调度切换时，将寄存器上下文和栈		保存到其他地方，在切回来的时候，恢复先前保存的寄存器上下文和栈，直接操作栈则基本没有内核切换的		开销，可以不加锁的访问全局变量，所以上下文的切换非常快
+
+
+
+### 5.2 Thread类中start方法和run方法的区别
+
+​	调用start()方法会创建一个新的线程并启动
+
+​	Run()方法知识Thread的一个普通方法调用
+
+
+
+### 5.3 Thread和Runable的关系
+
+​	Thread是实现了Runnable接口的类，使run方法支持多线程
+
+​	因为单一继承原则，推荐使用Runnable接口
+
+
+
+### 5.4 如何给run()方法传参
+
+​	构造函数传参
+
+​	成员变量传参
+
+​	回调函数传参
+
+
+
+### 5.5 如何获得线程返回值
+
+- 主线程等待
+
+  ```java
+  public class CycleWait implements Runnable {
+      private String value;
+      @Override
+      public void run() {
+          try {
+              Thread.currentThread().sleep(3000);
+          } catch (InterruptedException e) {
+              e.printStackTrace();
+          }
+          value = "hello world";
+      }
+      
+      public static void main(String[] args) throws InterruptedException {
+          CycleWait cycleWait = new CycleWait();
+          Thread t = new Thread(cycleWait);
+          t.start();
+          //主线程等待法
+          while (cycleWait.value == null) {
+              Thread.currentThread().sleep(100);
+          }
+          //使用join实现，在主线程中调用t线程join方法，意思是主线程等待t线程执行完毕
+          t.join();
+          System.out.println(cycleWait.value);
+      }
+  }
+  ```
+
+  
+
+- 使用Callable接口，同故宫FutureTask或者线程池获取
+
+  ```java
+  public class CallableTest implements Callable<String> {
+      @Override
+      public String call() throws Exception {
+          String str = "hello world";
+          Thread.currentThread().sleep(3000);
+          return str;
+      }
+      
+      public static void main(String[] args) 
+          throws ExecutionException, 	InterruptedException {
+          futureTaskTest();
+          threadPoolTest();
+      }
+      //使用FutureTask对象获取返回值
+      public static void futureTaskTest()
+          throws ExecutionException, InterruptedException {
+          FutureTask task = new FutureTask(new CallableTest());
+          Thread thread = new Thread(task);
+          thread.start();
+          if (!task.isDone()) {
+              System.out.println("未执行完成");
+          }
+          System.out.println(task.get());
+      }
+      //使用线程池接收返回值
+      public static void threadPoolTest()
+          throws ExecutionException, InterruptedException {
+          ExecutorService es = Executors.newCachedThreadPool();
+          Future<String> future = es.submit(new CallableTest());
+          if (!future.isDone()) {
+              System.out.println("未执行完成");
+          }
+          System.out.println(future.get());
+      }
+  }    
+  ```
+
+
+
+### 5.6 线程的状态
+
+1. 新建 (New)：创建后未启动的线程
+
+2. 运行 (Running)：包含Running和Ready，可能正在执行，也可能等待cpu分配时间
+
+3. 无限期等待 (Waiting)：cpu不会给这种线程分配时间，需要显式唤醒
+
+   没有设置Timeout参数的Object.wait()方法
+
+   没有设置Timeout参数的Thread.join()方法
+
+   LockSuppot.pack()方法
+
+4. 有限期等待 (Time Waiting)：在一定时间后系统会自己唤醒
+
+   Thread.sleep()方法
+
+   设置Timeout参数的Object.wait()方法
+
+   设置Timeout参数的Thread.join()方法
+
+   LockSuppot.packNanos()方法，LockSuppot.packUntil()方法
+
+5. 阻塞 (Block)：等待获取排他锁
+
+6. 结束 (Terminated)：线程已结束
+
+
+
+### 5.7 wait()和sleep()的区别
+
+- sleep是Thread中的方法，wait是Object中定义的方法
+- sleep可以在任何地方使用，wait只能在synchronized方法或synchronized块中使用
+- sleep只会让出cpu，不会释放锁，wait不仅让出cpu，还会释放锁
+
+
+
+### 5.8 锁池和等待池
+
+- 锁池
+
+  假设线程A已经拥有了某个对象（不是类）的锁，而其他现线程B、C想调用这个对象的某个synchrronized方法（或者块），由于B、C线程进入对象的synchronized方法（或者块）之前必须获得该对象锁的拥有权，而恰巧该对象的锁目前正在被线程A占用，此时B、C线程就会被阻塞，进去一个地方去等待锁的释放，这个地方便是该对象的锁池
+
+- 等待池
+
+  假设线程A调用了某个对象的wait（）方法，线程A就会释放该对象的锁，同时线程A就会进去该对象的等待池中，进去等待池中的对象不会去竞争该对象的锁
+
+
+
+### 5.9 notify和notifyAll的区别
+
+​	notifyAll会让所有处于等待池的线程全部进入锁池去竞争获取锁的机会
+
+​	notify只会随机选取一个处于等待池中的线程进入锁池去竞争获取锁的机会
+
+
+
+### 5.10 yield()方法
+
+​	Thread.yield()函数被调用时，会给线程调度器一个当前线程愿意让出cpu使用的暗示，但是线程调度器可能会	忽略这个暗示
+
+
+
+### 5.11 如何中断线程
+
+调用interrupt()函数，通知线程该中断了
+
+如果线程处于阻塞状态，那么线程将立即退出被阻塞状态，并抛出一个InterruptedException
+
+如果线程处于正常活动状态，那么会将该线程的中断标记设置未true，被设置中断标志的线程将继续正常运行
+
+```java
+public static void main(String[] args) throws InterruptedException {
+    Thread t = new Thread(new Runnable() {
+        @Override
+        public void run() {
+            try {
+                while (!Thread.currentThread().isInterrupted()) {
+                    System.out.println("===");
+                    Thread.sleep(1000);
+                }
+            } catch (InterruptedException e) {
+                System.out.println(Thread.currentThread().getState());
+            }
+        }
+    });
+    t.start();
+    Thread.currentThread().sleep(3000);
+    t.interrupt();
+}
+```
+
+
+
+
+
+## 6. 并发-原理
+
+### 6.1 synchronized介绍
+
+互斥锁的特性：
+
+- 互斥性(原子性)
+
+  即在同一时间只允许一个线程持有某个对象，通过这种特性来实现多线程的协调机制
+
+- 可见性
+
+  保证一个线程释放锁之前，对共享变量所作的修改，随后获取该锁的另一个线程是可见的，即在获取共享变量时必须是在内存获取，否则另一线程可能实在本地缓存副本上操作（cpu缓存），引起数据不一致
+
+synchronized锁的是对象，不是代码
+
+总结：
+
+1. 有线程访问对象的同步代码块时，其他线程可以访问该对象的非同步代码块
+2. 若锁住的是同一个对象，一个线程访问对象的同步代码块时，其他访问该同步代码块的线程被阻塞
+3. 若锁住的是同一个对象，一个线程访问对象的同步方法时，其他访问该同步方法的线程被阻塞
+4. 若锁住的是同一个对象，一个线程访问对象的同步代码块时，其他线程访问该对象的同步方法会被阻塞，反之亦然
+5. 同一个类不同对象的对象锁互不干扰
+6. 类锁是特殊的对象锁，表现和1.2.3.4一致，由于一个类只有一把类锁，所以同一个类的不同对象使用类锁是同步的
+7. 类锁，对象锁互不干扰
+
+
+
+### 6.2 什么是可重入
+
+当一个线程试图操作一个由其他线程持有对象锁的临界资源时，将会处于阻塞状态，但是一个线程再次请求自己持有对象锁的临界资源，不会被阻塞，这种情况属于可重入
+
+
+
+### 6.3 自旋锁与自适应自旋锁
+
+- 自旋锁
+
+  多数情况下，共享数据的锁定持续时间很短，线程切换不值得(默认自旋10次)
+
+  通过让线程执行忙，循环等待锁释放，不会像Thread.sleep()一样放弃cpu执行时间
+
+  若锁被其他线程占用时间长，自旋会带来许多性能开销
+
+- 自适应自旋锁(jdk6)
+
+  与自旋锁相比，自旋次数不固定
+
+  
+
+  Java对象由对象头、对象体以及对齐字节所组成。而Java对象头中的Mark Word默认存放的是对象的hasCode、分代年龄以及锁标记位等(锁位标记存放着当前该对象锁是哪个线程拥有)。
+
+  
+
+  由前一次在同一个锁上自旋时间以及锁拥有着的状态决定，如果在同一对象锁上，某个线程自旋等待成功获取了锁，那么并且持有该锁的线程正在运行，jvm会认为该锁自旋获取成功的可能性较大，会增加等待时间
+
+
+
+### 6.4 锁消除和锁粗化
+
+- 锁消除
+
+  JIT编译时，对运行上下文进行扫描，去除不可能存在竞争的锁
+
+  ```java
+  public static void test(String s1,String s2){
+      StringBuffer stringBuffer = new StringBuffer();
+      stringBuffer.append(s1).append(s2);
+  }
+  ```
+
+  如上，不同线程调用StringBuffer.append()方法，由于stirngBuffer变量属于本地变量，只会在test()方法中使用，即每个线程都会拥有自己的stringBuffer对象，所以jvm会自动消除append方法中的锁，提升效率
+
+- 锁粗化
+
+  通过扩大加锁范围，避免重复加锁，如在循环中执行同步代码块，粗化为该方法加锁
+
+
+
+### 6.5 synchronized的四种状态
+
+​	无锁，偏向锁，轻量级锁，重量级锁
+
+1. 无锁
+
+2. 偏向锁
+
+   在大多实际环境下，锁不仅不存在多线程竞争，而且总是由同一个线程多次获取
+
+   
+
+   当一个线程访问同步快并获取锁时，会在对象头和栈帧中的锁记录里存储锁偏向的线程ID，以后该线程在进入和退出同步块时不需要进行`CAS`操作来加锁和解锁。只需要简单地测试一下对象头的`Mark Word`里是否存储着指向当前线程的偏向锁。如果成功，表示线程已经获取到了锁
+
+3. 轻量级锁
+
+   偏向锁使用了一种等待竞争出现才会释放锁的机制，所以当其他线程尝试获取偏向锁时，持有偏向锁的线程才会释放锁。但是偏向锁的撤销需要等到全局安全点（就是当前线程没有正在执行的字节码）。它会首先暂停拥有偏向锁的线程，让你后检查持有偏向锁的线程是否活着。如果线程不处于活动状态，直接将对象头设置为无锁状态。如果线程活着，JVM会遍历栈帧中的锁记录，栈帧中的锁记录和对象头要么偏向于其他线程，要么恢复到无锁状态或者标记对象不适合作为偏向锁
+
+   
+
+   线程在执行同步块之前，JVM会先在**当前线程的栈桢**中创建用于存储锁记录的空间，并**将对象头中的Mark Word复制到 当前线程的锁记录**中，官方称为Displaced Mark Word。然后线程尝试使用CAS将对象头中的Mark Word替换为**指向当前线程锁记录的指针**。如果成功，当前线程获得锁，如果失败，表示其他线程竞争锁，当前线程便尝试使用**自旋**来获取锁
+
+4. 重量级锁
+
+   当锁处于这个状态下，其他线程试图获取锁时都会**被阻塞住**，当持有锁的线程释放锁之后会唤醒这些线程，被唤醒的线程就会重新争夺锁
+
+   
+
+![image-20210208221925918](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210208221925918.png)
+
+
+
+### 6.6 synchronized和ReentrantLock区别
+
+ReentrantLock介绍：
+
+位于java.util.concurrent.locks包
+
+和CountDownLatch、FutureTask、Semaphore一样基于AQS实现
+
+能够实现比synchronized更细粒度的控制，如控制公平性
+
+调用lock()后，必须调用unlock()释放锁
+
+性能未必比synchronized高，并且也是可重入的
+
+ReentrantLock公平性设置
+
+```java
+ReentrantLock lock = new ReentrantLock(true);//慎用
+```
+
+参数未true时，倾向将锁赋予等待时间最久的线程
+
+synchronized 是非公平锁
+
+
+
+最核心的区别就在于Synchronized适合于并发竞争低的情况，因为Synchronized的锁升级如果最终升级为重量级锁在使用的过程中是没有办法消除的，意味着每次都要和cpu去请求锁资源，而ReentrantLock主要是提供了阻塞的能力，通过在高并发下线程的挂起，来减少竞争，提高并发能力
+
+- synchronized是一个关键字，是由**jvm层面**去实现的，而ReentrantLock是由**java api**去实现的
+- synchronized是隐式锁，可以**自动释放锁**，ReentrantLock是显式锁，需要**手动释放锁**
+- ReentrantLock可以让等待锁的线程响应中断，synchronized不行，使用synchronized时，等待的线程会一直等待下去，不能够响应中断
+- ReentrantLock可以获取锁状态，而synchronized不能
+
+
+
+### 6.7 volatile和synchronized区别
+
+1. volatile本质是告诉jvm当前变量在寄存器（工作内存）中的值是不确定的，需要从主存中读取；synchronized则是锁定当前变量，只有当前线程可以访问该变量，其他线程被阻塞知道该线程完成变量操作为止
+
+2. volatile仅能适用在变量级别；synchronized可以在变量、方法、和类级别使用
+
+3. volatile仅能保证变量修改的可见性，不能保证原子性；synchronized则可以保证变量修改的原子性和可见性
+
+4. volatile不会造成线程阻塞；synchronized可能造成线程阻塞
+
+5. volatile标记的变量不会被编译器优化；synchronized编辑的变量可以被编译器优化
+
+
+
+### 6.8 CAS(Compare and Swap)
+
+
+
+### 6.9 线程池
+
+利用Executors创建不同的线程池满足不同场景的需求
+
+1. newFixedThreadPool(int nThreads)
+
+   指定工作数量的线程池
+
+2. newCachedThreadPool()
+
+   短时间处理大量任务的线程池
+
+   - 试图缓存线程并重用
+   - 如果线程闲置时间超过阈值，就会被终止并移除
+   - 系统长时间闲置时，几乎不消耗资源
+
+3. newSingleThreadExecutor()
+
+   创建唯一的工作线程来执行任务，线程如果异常结束，会有另一个线程取代它
+
+   这个比较适合需要保证队列中任务顺序执行的场景
+
+4. newSingleThreadScheduledExecutor()和newScheduledThreadPool(int corePoolSize)
+
+   定时或者周期工作调度，浪者区别是单一工作线程还是多个线程
+
+5. newWorkStealingPool()--jdk8
+
+   内部构件ForkJoinPool，利用working-stealing算法，并行执行任务，不保证处理顺序
+
+**使用线程池的好处：**
+
+降低资源消耗
+
+提高线程可管理性
+
+**创建线程池:**
+
+1. ```java
+   ExecutorService executorService =Executors.newFixedThreadPool(3);
+   // 使用该种方式创建线程池容易造成OOM（out of memory）
+   //使用该种方式 LinkedBlockingDeque的默认容量为无限制
+   ```
+
+2. ```java
+   ExecutorService executorService = new ThreadPoolExecutor(
+   	3,//corePoolSize
+   	3,//maximumPoolSize
+   	60,//keepAliveTime
+   	TimeUnit.SECONDS,//unit
+   	new LinkedBlockingDeque<>(7),//workQueue
+   	new DefaultThreadFactory("myPool"),//threadFactory
+   	new ThreadPoolExecutor.AbortPolicy()//handler
+   );
+   ```
+
+   参数：
+
+   - corePoolSize：核心线程数量
+   - maximumPoolSize：最大线程数量
+   - keepAliveTime：非核心线程存活时间
+   - unit：keepAliveTime时间单位
+   - workQueue：任务等待队列
+   - threadFactory：线程创建工厂，使用DefaultThreadFactory工厂创建的线程具有相同优先级
+   - handler： 线程池饱和策略
+     - AbortPolicy：直接抛异常，默认的拒绝策略
+     - CallerRunsPolicy：直接在调用线程执行该任务
+     - DiscardPolicy：丢弃任务
+     - DiscardOldestPolicy：丢弃最老未被执行任务，执行当前任务
+
+
+
+### 6.10 线程池的状态
+
+![image-20210208232555450](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210208232555450.png)
+
+1. Running：能够接收新任务，并且也能处理阻塞队列中的任务
+2. Shutdown：不在接收新任务，但是能处理存量任务
+3. Stop: 不在接收新任务，也不处理存量任务
+4. Tidying：所有任务都终止
+5. Terminated：terminated()方法执行完后进入该状态
+
+
+
+### 6.11 线程池submit和execute方法的区别
