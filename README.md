@@ -1146,3 +1146,182 @@ synchronized 是非公平锁
 
 
 ### 6.11 线程池submit和execute方法的区别
+
+
+
+## 7. java常用类库
+
+### 7.1 java异常架构
+
+![image-20210211130205915](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210211130205915.png)
+
+- Error和Exception的区别：
+
+  **Error**：为程序无法处理的系统错误，编译器不做检查
+
+  **Exception**：程序可以处理的异常，捕获后可能恢复
+
+- CheckedException和UnCheckedException的区别
+
+  **CheckedException**：图中粉色的是检查异常，必须被try{}catch语句块所捕获，或者通过在方法签名中通过throws子句声明，受检查的异常必须在编译时被捕捉处理
+
+  **UnCheckedException**：也就是运行时异常RuntimeException
+
+- 常见的RuntimeException
+  - NullPointerException: 空指针引用异常
+  - ClassCastException:  类型强制转换异常
+  - IllegalArgumentException: 传递非法参数异常
+  - ArithmeticException: 算术运算异常
+  - ArrayStoreException: 向数组中存放与声明类型不兼容对象异常
+  - IndexOutOfBoundsException: 下标越界异常
+  - NumberFormatException: 数字格式异常
+  - NegativeArraySizeException: 创建一个大小为负数的数组错误异常
+
+- Finally执行顺序优先于return语句
+- try{}catch语句效率并不如if()语句
+
+
+
+### 7.2 java集合架构
+
+#### 7.2.1 集合框架图
+
+![image-20210211131453134](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210211131453134.png)
+
+![image-20210211131503928](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210211131503928.png)
+
+
+
+#### 7.2.2 List
+
+- **ArrayList** 是一个动态数组结构，支持随机存取，尾部插入删除方便，内部插入删除效率低下，因为需要移动数组内部元素，如果内部数组容量不足时则自动扩容，当数组很大时，效率会变低
+
+  **ArrayList**扩容方式：
+
+  ArrayList默认容量为10
+
+  jdk1.6扩容算法  新容量=旧容量*1.5+1
+
+  jdk1.8扩容算法  新容量=旧容量*1.5 ，但是扩容或检查当前容量是否大于需求量，如扩容后容量还小于需求量，就直接使用需求量当作新的数组容量，让后调用Arrays.copyOf()复制
+
+  
+
+  Arrays.copyOf()不仅仅只是拷贝数组中的元素，在拷贝元素时，会创建一个新的数组对象而System.arrayCopy只拷贝已经存在数组元素。
+
+  Arrays.copyOf()该方法的底层还是调用了System.arrayCopyOf()方法。
+
+  System.arrayCopy如果改变目标数组的值原数组的值也会随之改变
+
+  
+
+- **LinkedList** 是一个双向链表结构，在任意位置插入删除都很方便，但是不支持随机取值，每次都只能从一端开始遍历，直到查询到指定对象，不过他不像ArrayList需要内存拷贝，因此效率较高，但是因为存在额外的前驱和后继节点，因此占用内存比ArrayList较高
+
+  
+
+- **Vector** 也是一个动态数组结构，自jdk1.1引入，ArrayList为jdk1.2引入，ArrayList大部分方法和Vector类似，区别是Vector是允许同步访问，Vector中的操作是线程安全的，因而效率很低，ArrayList所有操作是异步的，执行效率高，但线程不安全
+
+  vector的替代
+
+  ```java
+  List<Object>list = Collections.synchronizedList(new ArrayList<Object>());
+  //使用复制容器java.util.concurrent.CopyOnWriteArrayList
+  final CopyOnWriteArrayList<Object> cowList = new CopyOnWriuteArrayList();
+  ```
+
+
+
+- **Stack** 是Vector的子类，本质也是一个动态数组，不同的是，它的数据结构是先进后出
+
+  Stack现在也不常用，因为有一个**ArrayDeque**双端队列，可以代替Stack所有功能，且执行效率比Stack高
+
+
+
+#### 7.2.3 Map
+
+- **HashMap** 
+
+  继承AbstractMap，key不可重复，因为使用哈希表存储元素，所以输入数据与输出数据顺序不一致，另外HashMap的 key 和 value 均可为null ，但是只能有一个key为null
+
+  
+
+  java8之前用**数组**+**链表**实现，如果极端情况数据的hashcode都一样，性能会恶化O(1)->O(n)
+
+  java8之后用**数组**+**链表**+**红黑树**实现，性能最差为O(log n)
+
+  默认容量16，装载因子0.75，扩容后容量变为之前的两倍
+
+  当链表大小大于8并且整个Hashmap的元素大于64就会由链表改造成为红黑树
+
+  为什么是8，因为红黑树查找时间复杂度是O(log n) 8个元素查找需要3次，链表线性查找需要的平均次数为n/2 = 4 次
+
+  当链表大小小于6就会由红黑树转为链表
+
+  
+
+- **HashTable** 
+
+  早期提供的哈希表的实现，线程安全串行执行，性能较差，key、value不能为null
+
+  
+
+- **ConcurrentHashMap**
+
+  早期的ConcurrentHashMap由分段锁实现
+
+  当前的ConcurrentHashMap由CAS+synchronized使锁更细化
+
+  ConcurrentHashMap不允许null键
+
+  put方法执行时，通过hash定位数组的索引坐标，是否存在Node节点，如果没有则用CAS进行添加（链表头节点），如果添加失败则进入下一次循环，如果头节点不为空，则尝试获取头节点的同步锁，在进行操作
+
+  
+
+- **LinkedHashMap**
+
+  HashMap的子类，内部使用链表记录插入顺序，使得输入与输出的记录顺序相同
+
+
+
+- **TreeMap**
+
+  能够把它保存的记录根据键排序，默认是按键值的升序排序，也可以指定排序的比较器，当用 Iterator 遍历时，得到的记录是排过序的；如需使用排序的映射，建议使用 TreeMap
+
+
+
+### 7.2.4 Set
+
+- **HashSet**
+
+  底层基于HashMap的key实现，元素不可重复，特性同HashMap
+
+- **LinkedHashSet**
+
+  底层也是基于LinkedHashMap的key实现，一样元素不可重复，特性同于LinkedHashMap
+
+- **TreeSet**
+
+  也是基于 TreeMap 的k实现的，同样元素不可重复，特性同 TreeMap
+
+  Set集合的实现，基本都是基于Map中的键做文章，使用Map中键不能重复、无序的特性
+
+
+
+### 7.2.5 hashcode作用
+
+​	对象的散列值，Object类中的方法，
+
+​	像Hash开头的类，HashMap、HashSet、Hash等等
+
+​	哈希代码值可以提高性能
+
+​	实现了hashCode一定要实现equals，因为底层HashMap就是通过这2个方法判断重复对象的，先判断key的		hashCode是否相等，相等进行equals判断，equals为true覆盖，不为true以链表的形式插入
+
+​	如果两对象equals()是true,那么它们的hashCode()值一定相等
+
+​	如果两对象的hashCode()值相等，它们的equals不一定相等（hash冲突）
+
+
+
+### 7.2.6 final的四种用法
+
+### 7.2.7 序列化是什么，底层怎么实现
