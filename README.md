@@ -1325,3 +1325,146 @@ synchronized 是非公平锁
 ### 7.2.6 final的四种用法
 
 ### 7.2.7 序列化是什么，底层怎么实现
+
+
+
+## 8. Java IO
+
+### 8.1 Java IO流图
+
+![java_io_流](https://github.com/buddhistSystem/doc/blob/main/image-storage/java_io_流.jpg)
+
+
+
+### 8.2 基本概念
+
+​	**同步异步针对的是被调用者**
+
+- 同步：A调用B，B处理是同步的，直到B处理完成之后才会通知A
+- 异步：A调用B，Ｂ异步处理，Ｂ收到Ａ的请求之后，会先通知Ａ收到了请求，然后异步处理，处理完成之后通过回调等方式通知Ａ
+
+
+
+​	**阻塞和非阻塞针对的是调用者**
+
+- 阻塞：Ａ调用Ｂ，Ａ一直等待Ｂ的返回，期间不能做其他任务，处于阻塞状态
+- 非阻塞：Ａ调用B，A调用成功后可以不用一直等待B的返回，期间可以执行其他任务
+
+
+
+**java中的3种IO模型**
+
+- BIO(Blocking IO)同步阻塞IO
+
+  每有一个客户端连接就需要和Server建立一个线程
+
+  ![image-20210216014823210](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210216014823210.png)
+
+- NIO(New IO)同步非阻塞IO
+
+  ![image-20210216014935931](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210216014935931.png)
+
+  通道和缓冲区是NIO种的核心对象，几乎每一个IO操作都要使用它们
+
+  - 缓冲区
+
+    Buffer是一个对象，它包含一些要写入或者刚读出的数据。在 NIO 中加入 Buffer 对象，体现了新库与原 I/O 的一个重要区别。在面向流的 I/O 中，数据直接写入或者将数据直接读到 Stream 对象中。
+
+    
+
+    在 NIO 库中，所有数据都是用缓冲区处理的。在读取数据时，它是直接读到缓冲区中的。在写入数据时，它是写入到缓冲区中的。任何时候访问 NIO 中的数据，都是将它放到缓冲区中。
+
+    
+
+    缓冲区实质上是一个数组。通常它是一个字节数组，但是也可以使用其他种类的数组。但是一个缓冲区不 仅仅 是一个数组。缓冲区提供了对数据的结构化访问，而且还可以跟踪系统的读/写进程。
+
+    
+
+  - 缓冲区类型
+
+    最常用的缓冲区类型是 ByteBuffer。一个 ByteBuffer 可以在其底层字节数组上进行 get/set 操作(即字节的获取和设置)
+
+    
+
+    其他类型：CharBuffer、ShortBuffer、IntBuffer、LongBuffer、FloatBuffer、DoubleBuffer
+
+    
+
+    每一个 Buffer 类都是 Buffer 接口的一个实例。 除了 ByteBuffer，每一个 Buffer 类都有完全一样的操作，只是它们所处理的数据类型不一样。因为大多数标准 I/O 操作都使用 ByteBuffer，所以它具有所有共享的缓冲区操作以及一些特有的操作。
+
+    
+
+  - 通道
+
+    Channel是一个对象，可以通过它读取和写入数据。拿 NIO 与原来的 I/O 做个比较，通道就像是流。
+
+    所有数据都通过 Buffer 对象来处理。不会将字节直接写入通道中，相反，先将数据写入包含一个或者多个字节的缓冲区。同样，不会直接从通道中读取字节，而是将数据从通道读入缓冲区，再从缓冲区获取这个字节。
+
+    通道类型：通道与流的不同之处在于通道是双向的。而流只是在一个方向上移动(一个流必须是 InputStream或者 OutputStream 的子类)， 而 通道 可以用于读、写或者同时用于读写。
+
+    因为它们是双向的，所以通道可以比流更好地反映底层操作系统的真实情况。特别是在 UNIX 模型中，底层操作系统通道是双向的。
+
+    
+
+- AIO(Asynchronous IO)异步非阻塞IO
+
+
+
+## 9. spring
+
+### 9.1 IOC和DI的区别
+
+- IOC： Inverse of control反转控制的概念，就是将原本程序中需要手动创建的对象的控制权交给spring来管理
+- DI：Dependency injection依赖注入，在spring创建对象时，动态的将以有的对象注入到Bean
+
+
+
+### 9.2 BeanFactory 接口和ApplicationContent接口的区别
+
+- ApplicationContext接口继承BeanFactory， Srping的核心工厂是BeanFactory，BeanFactory采用延迟加载，第一次getBean时候才会初始化Bean，ApplicationContext是会在加载配置文件的时候初始化Bean
+
+- ApplicationContext是对BeanFactory的扩展，它可以进行国际化处理，时间传递和Bean的自动装配以及不同应用层的Context实现
+
+
+
+### 9.3 srping配置bean实例化有哪些方法
+
+1. 使用**空构造器实例化**，使用此种方式，class属性指定的类必须有空构造器
+
+```xml
+<bean name="people" class="com.xxx.entity.People"></bean>
+```
+
+2. 使用**带参数的构造器**，可以使用<constructor-arg>标签指定构造器参数值，index表示位置，value表示常量值也可以指引用，指定引用使用ref来引用另一个Bean的定义
+
+```xml
+<bean name="people2" class="com.xxx.entity.People">
+	<constructor-arg index="0" value="张三"></constructor-arg>
+    <constructor-arg index="1" value="18"></constructor-arg>
+    <constructor-arg index="2" ref="collection"></constructor-arg>
+</bean>
+```
+
+3. 使用**静态工厂方式**实例化bean,使用这种方式除了指定必须的class属性，还要指定factory-method属性来指定实例化Bean的方法，而且使用静态工厂方法也允许指定方法参数，spring IoC容器将调用此属性指定的方法来获取Bean
+
+   ```xml
+   <bean name="bean2" class="com.xxx.Bean2Factory" factory-method="createBean2"></bean>
+   ```
+
+4. 使用**实例工厂**实例化bean，使用这种方式不能指定class属性，此时必须使用factory-bean属性来指定工厂Bean，factory-method属性指定实例化Bean的方法，而且使用实例工厂方法允许指定方法参数，方式和使用构造器方式一样
+
+   ```xml
+   <bean name="bean3Factory" class="com.xxx.Bean3Factory"></bean>
+   <bean name="bean3" factory-bean="bean3Factory" factory-method="createBean3"></bean>
+   ```
+
+   
+
+### 9.4 spring Bean 生命周期
+
+
+
+
+
+### 9.5 spring bean 作用域
+
