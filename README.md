@@ -1475,3 +1475,138 @@ synchronized 是非公平锁
 
 
 
+### 9.6 spring如何处理线程并发问题
+
+通过ThreadLocal解决，ThreadLocal会为每个线程提供一个独立的变量副本，从而隔离了多个线程对数据的访问冲突，概括起来对于多线程资源共享问题，同步机制采用了以时间换空间的形式，ThreadLocal采用了以空间换时间的方式
+
+
+
+### 9.7 ThreadLocal实现原理
+
+每个Thread对象内部都维护了一个ThreadLocalMap这样一个ThreadLocal的Map，可以存放若干ThreadLocal
+
+以线程自己作为Map的key，存储value，所以每个线程都是从自己的Map中读取变量，就不存在线程安全问题了
+
+
+
+### 9.8 SpringAOP
+
+- 连接点（JoinPoint）
+
+  就是spring允许通知Advice的地方，如每个方法的前后，或者抛出异常时等，spring只支持方法的连接点，而AspectJ还可以在构造器或者属性注入时都行
+
+- 切入点（Pointcut）
+
+  目标对象,将要和已经 增强的方法
+
+  一个类里，有15个方法，那就有15个连接点，但是并不需要在所有方法都使用通知，只是想让其中几个，在调用这几个方法之前、之后或者抛出异常时干点什么，那么就用切入点来定义这几个方法，让切入点来筛选连接点，选中需要的方法
+
+- 切面
+
+  切入点+通知
+
+- 通知类型
+
+  - 前置通知 (@Before) 方法执行之前执行
+  - 后置通知 (@After) 方法执行之后执行，无论是否发生异常
+  - 返回通知 (@AfterReturning) 方法正常结束后执行
+  - 异常通知 (@AfterThrowing) 方法抛出异常后执行
+  - 环绕通知 (@Around) 围绕方法执行
+
+  ```java
+  @Aspect//声明切面，标记类
+  public class Audience
+  
+  @Pointcut("execution(* *.perform(..))")//定义切入点，标记方法
+  public void performance(){}   
+      
+  @Before("performance()")//切点之前执行
+  
+  ```
+
+  
+
+### 9.9 SpringAOP应用场景
+
+- 记录日志
+- 监控方法运行时间 （监控性能）
+- 权限控制
+- 缓存优化 （第一次调用查询数据库，将查询结果放入内存对象， 第二次调用， 直接从内存对象返回，不需要查询数据库 ）
+- 事务管理 （调用方法前开启事务， 调用方法后提交关闭事务 ）
+
+
+
+### 9.10 AOP实现原理
+
+动态代理：
+
+Jdk代理：又叫接口代理
+
+Cglib代理：又叫子类代理
+
+
+
+### 9.11 Spring事务传播行为
+
+| PROPAGATION_REQUIRED          | **如果当前没有事务，就新建一个事务，如果已经存在一个事务中，加入到这个事务中。这是最常见的选择。** |
+| ----------------------------- | :----------------------------------------------------------- |
+| **PROPAGATION_SUPPORTS**      | **支持当前事务，如果当前没有事务，就以非事务方式执行。**     |
+| **PROPAGATION_MANDATORY**     | **使用当前的事务，如果当前没有事务，就抛出异常。**           |
+| **PROPAGATION_REQUIRES_NEW**  | **新建事务，如果当前存在事务，把当前事务挂起。**             |
+| **PROPAGATION_NOT_SUPPORTED** | **以非事务方式执行操作，如果当前存在事务，就把当前事务挂起。** |
+| **PROPAGATION_NEVER**         | **以非事务方式执行，如果当前存在事务，则抛出异常。**         |
+| **PROPAGATION_NESTED**        | **如果当前存在事务，则在嵌套事务内执行。如果当前没有事务，则执行与PROPAGATION_REQUIRED类似的操作。** |
+
+
+
+### 9.12 @Transaction注解失效原因
+
+- 在非public方法中
+- 抛出的异常为checkedException，可以用rollbackFor来指定类型
+- 异常提前被catch掉
+
+
+
+
+
+## xx. 未归类
+
+### 1.tomcat集群怎么保证同步
+
+### 2.怎么解决超卖问题
+
+### 3.mybaits二级缓存
+
+Mybatis的一级缓存共享范围就是sqlSession内部，如果多个sqlsession需要共享缓存，则需要开启mybatis的二级缓存，二级缓存的区域是根据mapper的namespace划分的，如果两个mapper的namespace一样，那么他们就共享一个mapper缓存
+
+ 
+
+开启方式：mybatis配置文件中配置cacheEnable=true同时在mapper中添加<cache>标签，并且pojo必须实现序列化接口
+
+<cache>标签的属性：
+
+eviction：缓存回收策略
+
+Lru：最近最少使用对象回收
+
+Fifo：先进先出
+
+Soft：软引用先回收
+
+Weak：弱引用先回收
+
+flushinterval：缓存刷新间隔，默认不清空
+
+readonly：是否只读，mybatis认为从缓存读取操作都是只读的，不会修改数据
+
+size：缓存存放元素个数
+
+type：自定义缓存的全类名
+
+blocking：若缓存中不存在某个key，是否一直blocking，直到有数据存入
+
+ 
+
+当然在同一个namespace中如果有insert、update、delete则需要更新缓存
+
+<insert id="insertUser" parameterType="User" flushCache="true">
