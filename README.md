@@ -1468,3 +1468,10 @@ synchronized 是非公平锁
 
 ### 9.5 spring bean 作用域
 
+- **Singleton**：Spring只会为每一个bean创建一个实例
+- **Prototype**：每一次请求（即执行getBean()方法都会产生一个bean实例）
+- **Request**：针对每一个HTTP请求都会产生一个bean，该bean仅在当前request请求内	有效，仅适用于WebApplicationContext环境
+- **Session**：同一个HTTP Session共享一个Bean，不同Session使用不同的Bean。该作用域仅适用于web的Spring WebApplicationContext环境
+
+
+
