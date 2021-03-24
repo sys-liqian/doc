@@ -104,3 +104,6 @@ docker-compose restart
 
 
 
+##### harbor配置后,需要配置nginx代理,并配置域名
+
+因为docker,k8s,对ip和端口的方式访问不友好
