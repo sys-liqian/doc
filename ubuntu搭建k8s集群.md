@@ -68,6 +68,12 @@ coredns
 
 运行命令:kubeadm init
 
+重置命令:kubeadm reset
+
+运行老版本的命令:kubeadm init --kubernetes-version v1.20.4
+
+**init之后切换为普通用户**
+
 如果运行成功会如下
 
 ```none
@@ -91,6 +97,8 @@ as root:
 
 需要在Node节点执行生成的命令: kubeadm join .........
 
+
+
 ## 安装网络附加组件Calico 
 
 安装命令  kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
@@ -99,7 +107,37 @@ as root:
 
 安装失败,卸了重安
 
+
+
+安装Calico过程中可能出现某个节点无法绑定ipv4地址
+
+需要修改calico.yaml
+
+```
+ 			# calico节点无法绑定ipv4新加配置
+            - name: IP_AUTODETECTION_METHOD
+              value: "interface=eth0"
+            # Auto-detect the BGP IP address.
+            - name: IP
+              value: "autodetect"
+            # Enable IPIP
+            # 添加windows节点,修改为Never,之前为Always
+            - name: CALICO_IPV4POOL_IPIP
+              value: "Never"
+            # 添加windows节点新加配置
+            - name: CALICO_AUTODETECTION_METHOD
+              value: "interface=eth0"
+```
+
+
+
 查看是否安装成功 命令:kubectl get pods --all-namespaces
+
+查看 某个节点日志 命令:kubectl describe pod -n kube-system calico-node-98jjn
+
+查看日志
+
+kubectl logs calico-node-dnkxh -n kube-system -c calico-nod
 
 成功如下:
 
@@ -119,7 +157,7 @@ kube-scheduler-promote            1/1     Running             1          6h25m
 ## 安装kuboard可视化
 
 ```sh
-安装: kubectl applay -f https://kuboard.cn/install-script/kuboard.yaml
+安装: kubectl apply -f https://kuboard.cn/install-script/kuboard.yaml
 删除:kubectl delete -f https://kuboard.cn/install-script/kuboard.yaml
 ```
 
@@ -127,5 +165,6 @@ kube-scheduler-promote            1/1     Running             1          6h25m
 
 ```
  kubectl get secrets -n kube-system
- kubectl describe  secrets -n kube-system kuboard-user-token-hjtwg
+ kubectl describe  secrets -n kube-system kuboard-user-token-_____
 ```
+
