@@ -552,6 +552,8 @@ Class.forName加载的类已经完成了初始化
 - -Xss : 规定每个线程虚拟机栈大小，一般256k足够
 - -Xms：规定堆初始大小
 - -Xmx：规定堆最大值
+- -Xmn：规定新生代大小
+- -XXSurvivorRatio: Eden和Sur区的比值
 
 
 
