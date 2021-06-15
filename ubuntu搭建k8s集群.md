@@ -16,8 +16,6 @@ kubeadm: 1.20.4-00
 
 永久关闭: 文件/etc/fstab 删除/swap内容
 
-docker用户组?
-
 
 
 ### 安装软件

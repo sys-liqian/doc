@@ -1,5 +1,7 @@
 ## harbor搭建
 
+##### harbor运行依赖docker和docker-compose,请先安装docker
+
 ##### 安装最新的docker-compose
 
 ```
