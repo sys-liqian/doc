@@ -23,6 +23,11 @@ docker pull mysql:5.7
  server-id = 1                              # 确保在整个Mysql集群中唯一
  log-bin = /var/log/mysql/mysql-bin.log     # 日志存放位置 
  log-bin-index = binlog.index
+ 
+#[Err]1055 - Expression #1 of ORDER BY clause is not in GROUP BY clause and contains     #nonaggregated column ‘information_schema.PROFILING.SEQ’ which is not functionally  #dependent on columns in GROUP BY clause; this is incompatible with  #sql_mode=only_full_group_by
+
+# 出现上述错误,需要修改sql_mode
+ sql_mode=NO_ENGINE_SUBSTITUTION,STRICT_TRANS_TABLES 
 ```
 
 
