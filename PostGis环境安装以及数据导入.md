@@ -1,4 +1,4 @@
-Pgrouting 环境搭建
+### Pgrouting 环境搭建，数据处理
 
 #### 1.安装所需软件
 
@@ -7,7 +7,7 @@ Pgrouting 环境搭建
 
 #### 2.创建数据库，加载扩展
 
-使用pgrouting功能需要以下两个扩展功能,PostGis:pg11/13 windows中已经包含pgrouting
+使用pgrouting功能需要以下两个扩展功能,PostGis:pg11/3.1.0 windows中已经包含pgrouting
 
 使用navicat或者postgresql自带的pgAdmin执行以下sql语句
 

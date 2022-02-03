@@ -1,11 +1,9 @@
 ## harbor搭建
 
-##### harbor运行依赖docker和docker-compose,请先安装docker
-
 ##### 安装最新的docker-compose
 
 ```
-weget https://github.com/docker/compose/releases/download/1.23.2/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
+wget https://github.com/docker/compose/releases/download/1.23.2/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
 ```
 
 项目git地址:
@@ -106,6 +104,3 @@ docker-compose restart
 
 
 
-##### harbor配置后,需要配置nginx代理,并配置域名
-
-因为docker,k8s,对ip和端口的方式访问不友好
