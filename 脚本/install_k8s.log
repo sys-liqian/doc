@@ -1,0 +1,46 @@
+systemctl stop firewalld  
+systemctl disable firewalld
+sed -i 's/enforcing/disabled/' /etc/selinux/config
+setenforce 0
+vim /etc/fstab #关闭swap
+reboot
+
+cd /etc/sysconfig/network-scripts/
+vi ifcfg-eth0 #固定网卡ip
+network restart
+service network restart
+
+vi ifcfg-eth1 #固定网卡2ip
+service network restart
+
+yum install net-tools vim openssh-server -y
+vim /etc/hostname #修改hostname
+reboot
+
+
+curl https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo?spm=a2c6h.25603864.0.0.29d84ca5jvb9YX -o /etc/yum.repos.d/docker-ce.repo
+yum install docker-ce-19.03.15-3.el7.x86_64
+systemctl start docker
+vim daemon.json #配置镜像源和跳过harbor https仓库地址
+systemctl restart docker
+systemctl enable docker
+
+cat > /etc/yum.repos.d/kubernetes.repo << EOF [kubernetes] name=Kubernetes baseurl=https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64 enabled=1 gpgcheck=0 repo_gpgcheck=0 gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg https://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg EOF
+yum install kubelet-1.21.14 kubeadm-1.21.14 kubectl-1.21.14 -y --nogpgcheck
+systemctl enable kubelet && systemctl start kubelet
+
+kubeadm config print init-defaults  > kubeadm-config.yaml
+vim kubeadm-config.yaml #修改kubeadmi-config中的镜像源改为aliyun
+kubeadm init --config=./kubeadm-config.yaml 
+
+
+yum install bash-completion
+source /usr/share/bash-completion/bash_completion
+echo 'source <(kubectl completion bash)' >>~/.bashrc
+source /usr/share/bash-completion/bash_completion
+
+kubectl apply -f calico.yaml 
+
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
