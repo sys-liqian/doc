@@ -1,0 +1,30 @@
+使用go-ceph库排错
+
+项目地址：https://github.com/ceph/go-ceph
+按照项目介绍先安装头文件
+
+这里使用的是Debian系统
+apt install libcephfs-dev librbd-dev librados-dev
+
+然后编译项目报错
+undefined: rados.errnotconnected
+
+这是由于没有开启CGO_ENABLE，注意必须实在go env中开启此选项，编译时
+使用 CGO_ENABLE=1 go build 方式不行
+
+解决上述错误后新的错误为
+go-ceph@v0.15.0/rados/ioctx_octopus.go:24:2: could not determine kind of name for C.rados_set_pool_full_try
+
+这是由于本地C库头文件与go-ceph不兼容，本地源版本过低无法下载高版本C库，更换镜像源
+https://developer.aliyun.com/mirror/ceph?spm=a2c6h.13651102.0.0.529c1b111zMfqV
+
+apt-get install software-properties-common
+wget -q -O- 'https://mirrors.aliyun.com/ceph/keys/release.asc' | sudo apt-key add -
+apt-add-repository 'deb https://mirrors.aliyun.com/ceph/debian-pacific/ buster main'
+apt update
+
+重新安装开发库
+apt install libcephfs-dev librbd-dev librados-dev
+
+编译时指定cpeh版本
+go build  -tags pacific -o csi-plugin
