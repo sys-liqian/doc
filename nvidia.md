@@ -1,3 +1,4 @@
+# Centos7
 ## 内核升级
 
 ```bash
@@ -14,6 +15,7 @@ yum --enablerepo=elrepo-kernel install kernel-lt-devel
 elrepo库中只包含当前最新的驱动和开发包，若需指定版本使用该地址下载地址
 ```
 http://193.49.22.109/elrepo/kernel/el7/x86_64/RPMS/
+http://mirrors.coreix.net/elrepo-archive-archive/kernel/el7/x86_64/RPMS/
 ```
 
 ## GCC升级
@@ -90,6 +92,7 @@ chmod +x  NVIDIA-Linux-x86_64-510.108.03.run
 nvidia-smi
 #如果该命令有任何错误输出,尝试重新加载驱动
 modeprobe nvidia
+nvidia-modprobe -u -c=0
 ```
 
 ## 查看系统是否以UEFI方式安装
@@ -97,5 +100,64 @@ modeprobe nvidia
 dmesg | grep EFI
 ```
 
+# Rockey8
+## 环境
+操作系统: Rocky8
 
+内核版本: 4.18.0-477.13.1.el8_8.x86_64
+
+显卡型号: NVIDIA Corporation GV100GL [Tesla V100 PCIe 32GB] (rev a1)
+
+驱动版本: NVIDIA-Linux-x86_64-470.199.02
+
+## 安装前准备
+
+### 安装kernel-devel
+```bash
+dnf install kernel-devel-4.18.0-477.13.1.el8_8.x86_64
+```
+
+### 修改grub引导文件
+GRUB_CMDLINE_LINUX 中增加 pci=realloc pci=nocrs 
+```txt
+[root@peklppaasv100-kvm2 ~]# cat /etc/default/grub 
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR="$(sed 's, release .*$,,g' /etc/system-release)"
+GRUB_DEFAULT=saved
+GRUB_DISABLE_SUBMENU=true
+GRUB_TERMINAL_OUTPUT="console"
+GRUB_CMDLINE_LINUX="crashkernel=auto console=tty0 console=ttyS0,115200n8 pci=realloc pci=nocrs resume=/dev/mapper/rl-swap rd.lvm.lv=rl/root rd.lvm.lv=rl/swap net.ifnames=0 biosdevname=0 rhgb quiet"
+GRUB_DISABLE_RECOVERY="true"
+GRUB_ENABLE_BLSCFG=true
+```
+修改后执行
+```bash
+grub2-mkconfig -o /boot/grub2/grub.cfg
+```
+
+### 禁用nouveau驱动
+```bash
+sudo bash -c  "echo blacklist nouveau > /etc/modprobe.d/blacklist-nvidia-nouveau.conf"
+sudo bash -c "echo options nouveau modeset=0 >> /etc/modprobe.d/blacklist-nvidia-nouveau.conf"
+# 更新内核
+dracut --force
+```
+```bash
+[root@peklppaasv100-kvm2 ~]# cat /etc/modprobe.d/blacklist-nvidia-nouveau.conf
+blacklist nouveau
+options nouveau modeset=0
+```
+
+然后重启机器确认无输出则禁用成功
+```bash
+lsmod | grep nouveau
+```
+
+## Gpu-manager
+
+在k8s部署gpu-manager时,需要注意docker和kubelet使用的cgroup driver保持一致
+
+若使用的都是systemd,需要在gpu-manager的环境变量EXTRA_FLAGS中添加
+
+--cgroup-driver=systemd
 

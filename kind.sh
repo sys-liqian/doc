@@ -79,7 +79,7 @@ init_kind() {
 init_registry() {
   if test -z "$(docker ps -a | grep registry:2)"; then
     echo "registry not start,create container......"
-    docker run -d --restart always --name registry -v registry:/var/lib/registry -p 0.0.0.0:5000:5000 registry:2
+    docker run -d -p 0.0.0.0:5000:5000 -v regsitry:/var/lib/registry --name registry -h registry --network kind registry:2
   else
     echo "registry is already running."
   fi
@@ -101,25 +101,9 @@ nodes:
   - containerPort: 80
     hostPort: 80
     protocol: TCP
-  - containerPort: 443
-    hostPort: 443
+  - containerPort: 30080
+    hostPort: 30080
     protocol: TCP
-  - containerPort: 31122
-    hostPort: 31122
-    protocol: TCP
-kubeadmConfigPatches:
-- |
-  kind: ClusterConfiguration
-  etcd:
-    local:
-      extraArgs:
-        listen-metrics-urls: http://0.0.0.0:2381
-  controllerManager:
-    extraArgs:
-      bind-address: 0.0.0.0
-  scheduler:
-    extraArgs:
-      bind-address: 0.0.0.0
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
