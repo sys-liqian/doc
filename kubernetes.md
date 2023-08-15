@@ -185,3 +185,21 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
 [文档地址](https://docs.tigera.io/calico/latest/getting-started/kubernetes/self-managed-onprem/onpremises#install-calico-with-kubernetes-api-datastore-50-nodes-or-less) 使用Manifest安装
 
 当前安装版本为3.26.1,并且k8s pod使用的是默认的cidr(192.168.0.0/16),如果不是默认需要修改(CALICO_IPV4POOL_CIDR)
+
+## kubernets清理
+```bash
+sudo yum remove -y kubeadm kubectl kubelet kubernetes-cni kube*   
+sudo yum autoremove -y
+
+systemctl stop kubelet
+systemctl disable kubelet
+rm -rf /etc/systemd/system/kubelet.service
+rm -rf /etc/systemd/system/kube*
+
+sudo rm -rf ~/.kube
+sudo rm -rf /etc/kubernetes/
+sudo rm -rf /var/lib/kube*
+
+sudo rm -rf /etc/lib/etcd
+sudo rm -rf /var/lib/etcd
+```
