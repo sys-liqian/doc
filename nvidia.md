@@ -91,7 +91,7 @@ chmod +x  NVIDIA-Linux-x86_64-510.108.03.run
 ```bash
 nvidia-smi
 #如果该命令有任何错误输出,尝试重新加载驱动
-modeprobe nvidia
+modprobe nvidia
 nvidia-modprobe -u -c=0
 ```
 
