@@ -2,7 +2,7 @@
 
 1. 安装elrepo源
 ```bash
-yum -y install https://www.elrepo.org/elrepo-release-7.el7.elrepo.noarch.rp
+yum -y install https://www.elrepo.org/elrepo-release-7.el7.elrepo.noarch.rpm
 ```
 
 2. 安装密钥
