@@ -45,3 +45,12 @@ docker run -it --rm --network kind -e HTTP_PORT=9000 -p 9000:9000  elkozmon/zoon
 ```bash
 docker run -it --rm --network kind -e KAFKA_CLUSTERS_0_NAME=kafka-single -e KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=172.19.0.2:30008 -p 9090:8080 provectuslabs/kafka-ui:latest
 ```
+
+## Registry
+
+### Docker
+
+```bash
+docker run --restart always --network kind --name registry --tmpfs /var/lib/registry -p 0.0.0.0:5000:5000 -d registry:2
+```
+
