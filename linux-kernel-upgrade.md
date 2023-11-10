@@ -49,7 +49,7 @@ grubby --default-kernel
 
 7. 设置默认内核
 ```bash
-grubby --set-default "kernel=/boot/vmlinuz-5.4.251-1.el7.elrepo.x86_64"
+grubby --set-default /boot/vmlinuz-5.4.251-1.el7.elrepo.x86_64
 ```
 
 8. 确认默认内核修改成功
