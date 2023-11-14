@@ -2,7 +2,7 @@
 
 项目地址 [Github](https://github.com/ceph/go-ceph)
 
-## 在系统中安装Ceph开发库
+## 在Debian中安装Ceph开发库
 
 当前使用的系统
 
@@ -30,7 +30,7 @@ go-ceph@v0.15.0/rados/ioctx_octopus.go:24:2: could not determine kind of name fo
 
 这是由于本地C库头文件与go-ceph不兼容,本地源版本过低无法下载高版本C库,需要更换镜像源,[参考文章](https://developer.aliyun.com/mirror/ceph?spm=a2c6h.13651102.0.0.529c1b111zMfqV)
 
-## 安装Ceph源
+### 安装Ceph源
 ```bash
 apt-get install software-properties-common
 wget -q -O- 'https://mirrors.aliyun.com/ceph/keys/release.asc' | sudo apt-key add -
@@ -45,4 +45,42 @@ apt update
 ```bash
 #编译时指定cpeh版本
 go build  -tags pacific -o csi-plugin
+```
+
+
+## 在ARM麒麟中安装Ceph开发库
+当前系统
+```bash
+uname -a
+Linux earthgod 4.19.90-25.16.v2101.ky10.aarch64 #1 SMP Tue Jun 7 11:41:28 CST 2022 aarch64 aarch64 aarch64 GNU/Linux
+```
+安装ceph源到/etc/yum.repos.d
+```bash
+[ceph]
+name=Ceph packages for $basearch
+baseurl=https://mirrors.ustc.edu.cn/ceph/rpm-16.2.7/el8/$basearch
+enabled=1
+priority=2
+gpgcheck=1
+gpgkey=https://mirrors.ustc.edu.cn/ceph/keys/release.asc
+
+[ceph-noarch]
+name=Ceph noarch packages
+baseurl=https://mirrors.ustc.edu.cn/ceph/rpm-16.2.7/el8/noarch
+enabled=1
+priority=2
+gpgcheck=1
+gpgkey=https://mirrors.ustc.edu.cn/ceph/keys/release.asc
+
+[ceph-source]
+name=Ceph source packages
+baseurl=https://mirrors.ustc.edu.cn/ceph/rpm-16.2.7/el8/SRPMS
+enabled=0
+priority=2
+gpgcheck=1
+gpgkey=https://mirrors.ustc.edu.cn/ceph/keys/release.asc
+```
+
+```bash
+dnf install libcephfs-devel librbd-devel librados-devel
 ```
