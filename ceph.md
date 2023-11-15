@@ -1,13 +1,16 @@
+# Ceph
 
+## Ceph搭建
 
+搭建工具cephadm
 
-## 系统配置
+### 系统信息
 
 ```
 [root@ceph ~]# cat /proc/version
 Linux version 4.18.0-477.10.1.el8_8.x86_64 (mockbuild@iad1-prod-build001.bld.equ.rockylinux.org) (gcc version 8.5.0 20210514 (Red Hat 8.5.0-18) (GCC)) #1 SMP Tue May 16 11:38:37 UTC 2023
 ```
-## 网络配置
+### 网络信息
 eth0使用内网交换机
 
 eth1使用默认交换机连接外网
@@ -56,7 +59,7 @@ ONBOOT=yes
 nmcli c reload
 ```
 
-## 磁盘配置
+### 磁盘信息
 ```
 [root@ceph network-scripts]# lsblk
 NAME        MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
@@ -70,9 +73,9 @@ sdb           8:16   0   20G  0 disk
 sr0          11:0    1 1024M  0 rom
 ```
 
-## 安装
+### 安装
 
-### python3
+#### python3
 cephadm 需要python3.6+
 ```bash
 yum install wget zlib-devel bzip2-devel openssl-devel ncurses-devel sqlite-devel readline-devel tk-devel gcc make
@@ -86,14 +89,14 @@ ln -s /usr/local/python3/bin/python3.6 /usr/bin/python
 ln -s /usr/local/python3/bin/python3.6 /usr/bin/python3
 ```
 
-### cephadmin下载 reef版本
+#### cephadmin下载 reef版本
 ```bash
 CEPH_RELEASE=18.2.0
 curl --silent --remote-name --location https://download.ceph.com/rpm-${CEPH_RELEASE}/el9/noarch/cephadm
 chmod +x cephadm
 ```
 
-### 安装ceph
+#### 安装ceph
 ```bash
 ./cephadm add-repo --release reef
 ./cephadm install
@@ -225,19 +228,19 @@ a79ffc25cae7  quay.io/prometheus/alertmanager:v0.25.0                           
 ba937ec01944  quay.io/ceph/ceph-grafana:9.4.7                                                            /bin/bash             31 minutes ago  Up 31 minutes              ceph-d93a8098-7f9a-11ee-a7a0-00155d58d032-grafana-ceph
 ```
 
-### 安装ceph-common
+#### 安装ceph-common
 ```bash
 cephadm install ceph-common
 ```
 
-### 查看可用硬盘
+#### 查看可用硬盘
 ```bash
 [root@ceph ~]# ceph orch device ls
 HOST  PATH      TYPE  DEVICE ID                                       SIZE  AVAILABLE  REFRESHED  REJECT REASONS  
 ceph  /dev/sda  hdd   Virtual_Disk_6002248052a296d1211ce4198335f4cc  10.0G  Yes        22m ago  
 ```
 
-### 修改ceph.conf
+#### 修改ceph.conf
 我这里只有一块盘，ceph osd默认最少为3，所以修改配置文件如下
 
 
@@ -281,11 +284,175 @@ ceph orch restart mgr
 ceph orch restart mon
 ```
 
-### 可用硬盘安装osd
+#### 可用硬盘安装osd
 ```bash
 ceph orch apply osd --all-available-devices
 ```
+
+## Ceph常用操作
+
+### osd pool
+
+```bash
+# 创建名为rbd的osd pool,当osd个数小于5个,官方推荐pg_num=128
+# 这里我只有1个osd,设置为64
+ceph osd pool create rbd 64
+
+# 查看osd pool列表
+ceph osd pool ls
+
+# 查看osd pool详情
+ceph osd pool ls detail
+
+# 给pool打rbd标识 ceph osd pool application enable {pool name} rbd
+ceph osd pool application enable rbd rbd
+```
+
+### rbd
+
+```bash
+# 创建rbd块
+rbd create image0 --size 10M --pool rbd --image-feature layering
+
+# 查看rbd块详情 rbd info {pool name}/{image name}
+rbd info rbd/image0
+
+# 查看rbd块列表 rbd ls -l {poo name}
+rbd ls -l rbd
+
+# 在本机使用客户端挂载测试
+sudo rbd map --image rbd/image0
+
+# 查看rbd映射列表
+rbd showmapped
+
+# 解除rbd映射
+rbd unmap rbd/image0
+
+# 删除rbd块
+rbd remove image0 --pool rbd
+
+# 若挂载失败是因为rbd块存在内核不支持的features,可以通过如下命令禁用
+sudo rbd feature disable rbd/image0 object-map fast-diff deep-flatten
+``` 
+
+挂载后磁盘信息如下
+```text
+[root@ceph ~]# lsblk
+NAME                                                                                                  MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+sda                                                                                                     8:0    0   10G  0 disk 
+└─ceph--92ef9037--e062--438f--879d--d01dbdc9d719-osd--block--ca1a1c6d--a7b3--4d60--b60e--7a6f6436f718 253:2    0   10G  0 lvm  
+sdb                                                                                                     8:16   0   20G  0 disk 
+├─sdb1                                                                                                  8:17   0  600M  0 part /boot/efi
+├─sdb2                                                                                                  8:18   0    1G  0 part /boot
+└─sdb3                                                                                                  8:19   0 18.4G  0 part 
+  ├─rl-root                                                                                           253:0    0 16.4G  0 lvm  /
+  └─rl-swap                                                                                           253:1    0    2G  0 lvm  [SWAP]
+sr0                                                                                                    11:0    1 1024M  0 rom  
+rbd0                                                                                                  252:0    0   10M  0 disk 
+```
+
+### cephfs
+
+```bash
+# cephfs_data poll存储数据
+ceph osd pool create cephfs_data 64
+
+# cephfs_metadata存储元数据
+ceph osd pool create cephfs_metadata 64
+
+# 创建名为cephfs的文件系统
+ceph fs new cephfs cephfs_metadata cephfs_data
+```
+
+创建后集群状态如下,这是因为cephfs需要mds组件
+```text
+[root@ceph ~]# ceph -s
+  cluster:
+    id:     d93a8098-7f9a-11ee-a7a0-00155d58d032
+    health: HEALTH_ERR
+            1 filesystem is offline
+            1 filesystem is online with fewer MDS than max_mds
  
+  services:
+    mon: 1 daemons, quorum ceph (age 31m)
+    mgr: ceph.uzpgxd(active, since 4d)
+    mds: 0/0 daemons up
+    osd: 1 osds: 1 up (since 4d), 1 in (since 4d)
+ 
+  data:
+    volumes: 1/1 healthy
+    pools:   4 pools, 193 pgs
+    objects: 6 objects, 449 KiB
+    usage:   27 MiB used, 10 GiB / 10 GiB avail
+    pgs:     193 active+clean
+```
+
+部署mds
+```bash
+# ceph orch apply mds {cephfs name} --placement={mds服务个数 主机名1 主机名2}
+ceph orch apply mds cephfs --placement="1 ceph"
+```
+部署后服务如下
+```text
+[root@ceph ~]# ceph orch ls
+NAME                       PORTS        RUNNING  REFRESHED  AGE  PLACEMENT     
+alertmanager               ?:9093,9094      1/1  5s ago     4d   count:1       
+ceph-exporter                               1/1  5s ago     4d   *             
+crash                                       1/1  5s ago     4d   *             
+grafana                    ?:3000           1/1  5s ago     4d   count:1       
+mds.cephfs                                  1/1  5s ago     9s   ceph;count:1  
+mgr                                         1/2  5s ago     4d   count:2       
+mon                                         1/5  5s ago     4d   count:5       
+node-exporter              ?:9100           1/1  5s ago     4d   *             
+osd.all-available-devices                     1  5s ago     4d   *             
+prometheus                 ?:9095           1/1  5s ago     4d   count:1   
+```
+
+
+```bash
+# 挂载cephfs
+mount -t ceph 172.25.16.5:6789:/ /mnt -o name=admin,secret=AQAF3E1l4CIGLRAA6/Y9tvHEdNT2sy4YvgElrA==
+
+# 解除挂载
+umount /mnt
+```
+```text
+[root@ceph ~]# mount | grep /mnt
+172.25.16.5:6789:/ on /mnt type ceph (rw,relatime,seclabel,name=admin,secret=<hidden>,fsid=d93a8098-7f9a-11ee-a7a0-00155d58d032,acl)
+```
+
+```bash
+# 查看cephfs volume
+ceph fs volume ls
+
+# 查看 cephfs subvolue
+ceph fs subvolume ls cephfs –group_name csi
+
+#查看 subvolume详情
+ceph fs subvolume info  cephfs  csi-vol-5a8b99c5-25b7-479a-8ab1-28a6f5ad0960 --group_name csi
+```
+
+### 用户操作
+
+```bash
+# 创建用户
+ceph auth get-or-create client.test mon 'profile rbd' osd 'profile rbd pool=rbd' mgr 'allow rw'
+
+# 修改用户权限
+ceph auth caps client.test mon 'profile rbd' osd 'profile rbd pool=rbd'
+
+# 生成用户认证文件
+ceph auth get client.test -o /etc/ceph/ceph.client.test.keyring
+```
+
+
+```bash
+创建rbd image
+rbd -k /etc/ceph/ceph.client.test.keyring --id f4bbd9b8-7476-11ee-99e1-f72ccce79a2f -m 10.122.159.174:6789,10.122.159.125:6789,10.122.159.122:6789  create data-img2 --size 3G --pool pool-test --image-format 2 --image-feature layering
+```
+
+
 
 
 
