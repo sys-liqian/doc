@@ -22,6 +22,7 @@ yum install docker-ce-19.03.15-3.el7.x86_64
 
 5. 配置文件
 ```bash
+mkdir /etc/docker
 cat >/etc/docker/daemon.json <<EOF
 {
   "registry-mirrors":["https://registry.docker-cn.com","https://docker.mirrors.ustc.edu.cn"],
