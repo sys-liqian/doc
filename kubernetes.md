@@ -1,4 +1,4 @@
-# Rocky8 kubernetes 1.25.x
+# Rocky8 kubernetes 1.28.x
 
 ## 环境准备
 
@@ -41,18 +41,18 @@ EOF
 
 ### 安装kubeadm,kubelet,kubectl
 ```bash
-yum install kubelet-1.25.12 kubeadm-1.25.12 kubectl-1.25.12  --nogpgcheck
+yum install kubelet-1.28.2 kubeadm-1.28.2 kubectl-1.28.2  --nogpgcheck
 systemctl enable kubelet && systemctl start kubelet
 ```
 
 ### 安装cri-docker[下载地址](https://github.com/Mirantis/cri-dockerd/releases)
 ```bash
-tar -xf cri-dockerd-0.3.4.amd64.tgz 
+tar -xf cri-dockerd-0.3.8.amd64.tgz 
 mv cri-dockerd/cri-dockerd /usr/bin/
 chmod +x /usr/bin/cri-dockerd
 ```
 #### cri-docker配置服务文件
-pause:3.8 具体使用哪个版本可以用以下命令确认
+pause:3.9 具体使用哪个版本可以用以下命令确认
 ```bash
 kubeadm config images list
 ```
@@ -67,7 +67,7 @@ Wants=network-online.target
 Requires=cri-docker.socket
 [Service]
 Type=notify
-ExecStart=/usr/bin/cri-dockerd --network-plugin=cni --pod-infra-container-image=registry.aliyuncs.com/google_containers/pause:3.8
+ExecStart=/usr/bin/cri-dockerd --network-plugin=cni --pod-infra-container-image=registry.aliyuncs.com/google_containers/pause:3.9
 ExecReload=/bin/kill -s HUP $MAINPID
 TimeoutSec=0
 RestartSec=2
