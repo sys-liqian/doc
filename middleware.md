@@ -54,3 +54,10 @@ docker run -it --rm --network kind -e KAFKA_CLUSTERS_0_NAME=kafka-single -e KAFK
 docker run --restart always --network kind --name registry --tmpfs /var/lib/registry -p 0.0.0.0:5000:5000 -d registry:2
 ```
 
+## Minio
+
+### Dcoker
+
+```bash
+docker run --name minio -d -p 9000:9000 -p 9090:9090 -d -e "MINIO_ACCESS_KEY=minioadmin" -e "MINIO_SECRET_KEY=minioadmin" -v /data/minio/data:/data -v /data/minio/config:/root/.minio minio/minio:latest server /data --console-address ":9090" -address ":9000"
+```
