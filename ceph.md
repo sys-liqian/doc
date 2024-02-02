@@ -334,6 +334,18 @@ rbd remove image0 --pool rbd
 
 # 若挂载失败是因为rbd块存在内核不支持的features,可以通过如下命令禁用
 sudo rbd feature disable rbd/image0 object-map fast-diff deep-flatten
+
+# 创建加密块
+echo "123456" > passphrase.txt
+rbd create --size 2G rbd/luks2test
+rbd encryption format rbd/luks2test luks2 passphrase.txt
+
+# 挂载加密块，需要安装 rbd-nbd
+yum install rbd-nbd
+rbd -p rbd device map --image rbd/luks2test  -t nbd -o encryption-format=luks2,encryption-passphrase-file=passphrase.txt
+
+# 卸载
+rbd device unmap -t nbd  rbd/luks2test
 ``` 
 
 挂载后磁盘信息如下
