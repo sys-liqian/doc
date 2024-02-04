@@ -346,6 +346,22 @@ rbd -p rbd device map --image rbd/luks2test  -t nbd -o encryption-format=luks2,e
 
 # 卸载
 rbd device unmap -t nbd  rbd/luks2test
+
+# 映射ceph-csi创建的加密块
+rbd map --image rbd/csi-vol-831a74c2-b3d7-42e9-9fa1-2c09cd42ddd1
+# /dev/rbd0为rbd块在本地的映射的设备,rbd0luks为在/dev/mapper下创建的解密后的块设备,解密成功后操作的是/dev/mapper/rbd0luks这个设备
+
+# 手动输入密码解密
+cryptsetup luksOpen /dev/rbd0 rbd0luks
+# 通过密码文件解密
+cryptsetup luksOpen /dev/rbd0 --key-file {passphrase.txt} rbd0luks
+# 挂载设备（该设备已经被csi格式话文件系统,所以不需要mkfs操作）
+mount /dev/mapper/rbd0luks /mnt
+# 卸载设备
+umount /mnt
+cryptsetup luksClose /dev/mapper/rbd0luks
+# 解除映射
+rbd unmap rbd/csi-vol-831a74c2-b3d7-42e9-9fa1-2c09cd42ddd1
 ``` 
 
 挂载后磁盘信息如下
@@ -439,7 +455,7 @@ umount /mnt
 ceph fs volume ls
 
 # 查看 cephfs subvolue
-ceph fs subvolume ls cephfs –group_name csi
+ceph fs subvolume ls cephfs –-group_name csi
 
 #查看 subvolume详情
 ceph fs subvolume info  cephfs  csi-vol-5a8b99c5-25b7-479a-8ab1-28a6f5ad0960 --group_name csi
