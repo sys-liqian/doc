@@ -1,8 +1,14 @@
-# centos7 内核升级
+# 内核升级
 
 1. 安装elrepo源
+
+* centos7
 ```bash
 yum -y install https://www.elrepo.org/elrepo-release-7.el7.elrepo.noarch.rpm
+```
+* rockylinux
+```bash
+yum -y install https://www.elrepo.org/elrepo-release-8.el8.elrepo.noarch.rpm
 ```
 
 2. 安装密钥
@@ -13,14 +19,6 @@ rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
 3. 查看可用内核版本
 ```bash
 yum --disablerepo="*" --enablerepo="elrepo-kernel" list available | grep kernel-lt
-
-# kernel-lt.x86_64                        5.4.251-1.el7.elrepo       elrepo-kernel
-# kernel-lt-devel.x86_64                  5.4.251-1.el7.elrepo       elrepo-kernel
-# kernel-lt-doc.noarch                    5.4.251-1.el7.elrepo       elrepo-kernel
-# kernel-lt-headers.x86_64                5.4.251-1.el7.elrepo       elrepo-kernel
-# kernel-lt-tools.x86_64                  5.4.251-1.el7.elrepo       elrepo-kernel
-# kernel-lt-tools-libs.x86_64             5.4.251-1.el7.elrepo       elrepo-kernel
-# kernel-lt-tools-libs-devel.x86_64       5.4.251-1.el7.elrepo       elrepo-kernel
 ```
 
 4. 安装内核
