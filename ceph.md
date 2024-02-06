@@ -289,6 +289,16 @@ ceph orch restart mon
 ceph orch apply osd --all-available-devices
 ```
 
+安装后device AVAILABLE变为No
+```bash
+HOST  PATH      TYPE  DEVICE ID                                       SIZE  AVAILABLE  REFRESHED  REJECT REASONS                                                           
+ceph  /dev/sda  hdd   Virtual_Disk_600224805aad32083d51cb1818111b74  10.0G  No         2m ago     Has a FileSystem, Insufficient space (<10 extents) on vgs, LVM detected  
+```
+
+
+#### mon ceph is low on available space
+若ceph -s 出现该警告,则是因为磁盘空间不足，清理磁盘空间即可
+
 ## Ceph常用操作
 
 ### osd pool
