@@ -46,4 +46,19 @@ cp -v /boot/config-$(uname -r) .config
 make -j 4
 ```
 
+* 安装modules
+```bash
+make modules_install
+```
+
+* 安装内核
+```bash
+make install
+```
+
+* 制作rpm,rpm输出在/root/rpmbuild/RPMS/x86_64
+```bash
+make rpm-pkg
+```
+
 
