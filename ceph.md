@@ -255,7 +255,7 @@ ceph  /dev/sda  hdd   Virtual_Disk_6002248052a296d1211ce4198335f4cc  10.0G  Yes 
 
 ```bash
 ceph config set global osd_pool_default_size  1
-ceph config set osd pool_default_min_size 1
+ceph config set global osd_pool_default_min_size 1
 ceph config set global mon_warn_on_pool_no_redundancy false
 ```
 
