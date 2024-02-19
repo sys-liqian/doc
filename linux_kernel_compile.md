@@ -5,7 +5,8 @@
 dnf install -y ncurses-devel gcc make bison openssl-devel elfutils-libelf-devel flex 
 ```
 
-* rockylinx 源码安装[dwarves](https://developer.aliyun.com/packageSearch?word=dwarves) 
+* rockylinx 安装[dwarves](https://developer.aliyun.com/packageSearch?word=dwarves)，可以直接下载rpm包或者通过源码编译
+
 
 ```bash
 dnf install -y rpm-build cmake
@@ -25,24 +26,23 @@ cd /root/rpmbuild/RPMS/x86_64/
 rpm -ivh dwarves-1.22-1.el8.x86_64.rpm 
 ```
 
-## 内核源码[下载](https://www.kernel.org/)
+## 编译
 
-选择对应版本内核tarball下载
+选择对应版本内核源码[下载](https://www.kernel.org/)
 
-* 解压
+### kernel-5.4.268
+
+拷贝.config内核编译文件，或者通过`make menuconfig`手动配置
 ```bash
 tar xf linux-5.4.268.tar.xz 
-```
-
-* 拷贝配置
-```bash
-# 按需要修改.config
+cd linux-5.4.268
 cp -v /boot/config-$(uname -r) .config
 ```
 
 * 编译
+
+-j 指定线程数，一般为cpu核心2倍
 ```
-# -j 指定线程数，一般为cpu核心2倍
 make -j 4
 ```
 
@@ -59,6 +59,29 @@ make install
 * 制作rpm,rpm输出在/root/rpmbuild/RPMS/x86_64
 ```bash
 make rpm-pkg
+```
+
+### kernel-6.7.5
+
+[源码阿里镜像](https://mirrors.aliyun.com/linux-kernel/)
+
+下载linux-6.7.5.tar.gz
+
+编译6.7.5需要perl和pyton3
+```bash
+dnf install -y perl python3
+```
+
+编译kernel-6.7.5需要初始化git仓库
+```bash
+cd linux-6.7.5
+git init 
+git add .
+git commit -m 'Init Commit'
+```
+
+```bash
+make rpm-pkg -j 8
 ```
 
 
