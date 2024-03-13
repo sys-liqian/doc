@@ -465,7 +465,7 @@ umount /mnt
 ceph fs volume ls
 
 # 查看 cephfs subvolue
-ceph fs subvolume ls cephfs –-group_name csi
+ceph fs subvolume ls cephfs --group_name csi
 
 #查看 subvolume详情
 ceph fs subvolume info  cephfs  csi-vol-5a8b99c5-25b7-479a-8ab1-28a6f5ad0960 --group_name csi
