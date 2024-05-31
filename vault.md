@@ -67,6 +67,8 @@ vault delete mykv/test001
 ```
 
 # Database
+
+## postgres
 ```bash
 # 创建Path为db的数据库引擎
 vault secrets enable -path db database
@@ -88,6 +90,56 @@ vault write db/roles/my-role \
 
 # 读取临时账户信息
 vault read db/creds/my-role
+
+# 删除
+vault delete db/config/my-postgresql-database
+vault delete db/roles/my-role
+
+
+# 创建database
+vault write db/config/my-postgresql-database-registry \
+    plugin_name=postgresql-database-plugin \
+    allowed_roles="my-role-registry" \
+    connection_url="postgresql://{{username}}:{{password}}@127.0.0.1:5432/postgres?sslmode=disable" \
+    username="root" \
+    password="root"
+
+
+# 创建只有访问某个数据库的角色[registry]
+vault write db/roles/my-role-registry \
+    db_name=my-postgresql-database-registry \
+    creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}'; GRANT ALL PRIVILEGES ON DATABASE registry TO \"{{name}}\";" \
+    default_ttl="5m" \
+    max_ttl="5m"
+
+vault read db/creds/my-role-registry
+```
+
+## mysql
+```bash
+# 配置mysql数据库
+vault write db/config/my-mysql-database \
+    plugin_name=mysql-database-plugin \
+    connection_url="{{username}}:{{password}}@tcp(127.0.0.1:3306)/" \
+    allowed_roles="my-mysql-database-role" \
+    username="root" \
+    password="root"
+
+#创建role
+vault write db/roles/my-mysql-database-role \
+    db_name=my-mysql-database \
+    creation_statements="CREATE USER '{{name}}'@'%' IDENTIFIED BY '{{password}}'; GRANT SELECT ON *.* TO '{{name}}'@'%';" \
+    default_ttl="1h" \
+    max_ttl="24h"
+
+# 读取临时账户信息
+vault read db/creds/my-mysql-database-role
+
+# 续约，读取账户时何以获取lease_id
+vault lease renew <lease_id>
+
+# 查看当前凭证过期时间
+vault lease lookup <lease_id>
 ```
 
 # API
@@ -140,3 +192,18 @@ vault token lookup -accessor {accessor}
 vault token {token}
 ```
 
+
+## k8s 安装vault
+
+vault 1.14.8 MPL协议,chart version 为0.25.0
+
+```bash
+# 添加repo
+helm repo add hashicorp https://helm.releases.hashicorp.com
+# 查看所有chart版本
+helm search repo hashicorp -l
+# 开发模式启动vault
+helm install vault hashicorp/vault --version 0.25.0 --set "server.dev.enabled=true" -n vault
+# 正常启动vault
+helm install vault hashicorp/vault --version 0.25.0 -n vault
+```
