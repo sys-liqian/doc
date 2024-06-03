@@ -84,7 +84,7 @@ vault write db/config/my-postgresql-database \
 # 创建角色
 vault write db/roles/my-role \
     db_name=my-postgresql-database \
-    creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}'; GRANT SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\";" \
+    creation_statements="CREATE ROLE '{{name}}' WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}'; GRANT SELECT ON ALL TABLES IN SCHEMA public TO '{{name}}';" \
     default_ttl="1h" \
     max_ttl="24h"
 
@@ -108,7 +108,7 @@ vault write db/config/my-postgresql-database-registry \
 # 创建只有访问某个数据库的角色[registry]
 vault write db/roles/my-role-registry \
     db_name=my-postgresql-database-registry \
-    creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}'; GRANT ALL PRIVILEGES ON DATABASE registry TO \"{{name}}\";" \
+    creation_statements="CREATE ROLE '{{name}}' WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}'; GRANT ALL PRIVILEGES ON DATABASE registry TO '{{name}}';" \
     default_ttl="5m" \
     max_ttl="5m"
 
@@ -189,7 +189,7 @@ vault list auth/token/accessors
 vault token lookup -accessor {accessor}
 
 # token续期
-vault token {token}
+vault token renew {token}
 ```
 
 
