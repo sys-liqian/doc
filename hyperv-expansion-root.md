@@ -106,6 +106,12 @@
 # realtime =none                   extsz=4096   blocks=0, rtextents=0
 # data blocks changed from 4404224 to 7024640
 ```
+若根分区文件系统为ext4
+```bash
+# 路径格式 /dev/{根分区vgName}/{根分区lvName}
+resize2fs  /dev/ubuntu-vg/ubuntu-lv
+```
+
 * 结果
 ```bash
 [root@localhost ~]# df -h
