@@ -20,4 +20,7 @@ GRUB_CMDLINE_LINUX_DEFAULT="systemd.unified_cgroup_hierarchy=0"
 sudo update-grub
 #重启
 sudo reboot
+#查看是否生效
+stat -fc %T /sys/fs/cgroup/
+# tmpfs为cgroup v1,cgroup2fs为 v2
 ```
