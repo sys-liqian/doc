@@ -675,3 +675,94 @@ s3cmd del s3://mybucket/hell_seaweedfs.txt
 # 删除桶
 s3cmd rb s3://mybucket
 ```
+
+## 高可用验证
+
+数据准备
+```bash
+#!/bin/bash
+for i in $(seq 1 100)
+do
+
+echo $i >> $i.txt
+echo `cat /proc/sys/kernel/random/uuid` >> $i.txt
+
+done
+
+for i in $(seq 1 100)
+do
+
+echo "uploading $i.txt"
+curl -F file=@$i.txt "http:/10.119.108.51:8888/test/"
+echo "uploaed $i.txt"
+
+done
+```
+
+### master leader done
+
+```bash
+# 当前leader为10.119.108.51:9333
+Volume Size Limit	30000MB
+Free	888
+Max	900
+Leader	10.119.108.51:9333
+Other Masters	
+10.119.108.52:9333
+10.119.108.53:9333
+```
+停掉Leader
+```bash
+# 在10.119.108.51节点
+systemctl stop weed-master-server
+```
+Leader重新选举
+```bash
+# 当前leader为10.119.108.53:9333
+Volume Size Limit	30000MB
+Free	296
+Max	300
+Leader	10.119.108.53:9333
+Other Masters	
+10.119.108.51:9333
+10.119.108.52:9333
+```
+### volume done
+停掉volume server
+```bash
+# 在10.119.108.51节点
+systemctl stop weed-volume-server
+```
+```bash
+# volume done 前Topology
+Data Center	Rack	RemoteAddr	                    Volumes  Volume Ids  ErasureCodingShards	Max
+DefaultDataCenter	DefaultRack	10.119.108.51:8080	5	       1 3-6	      0	                  300
+DefaultDataCenter	DefaultRack	10.119.108.52:8080	4	       2-5	        0	                  300
+DefaultDataCenter	DefaultRack	10.119.108.53:8080	3	       1-2 6	      0	                  300
+
+# volume done 后Topology
+Data Center	Rack	RemoteAddr	                    Volumes  Volume Ids  ErasureCodingShards	Max
+DefaultDataCenter	DefaultRack	10.119.108.52:8080	4	       2-5	       0	                  300
+DefaultDataCenter	DefaultRack	10.119.108.53:8080	3	       1-2 6	     0  	                300
+```
+### filer done
+停掉filer server,测试时没有在filer服务前加lb,所以51节点done后，使用53或者52节点验证
+```bash
+# 在10.119.108.51节点
+systemctl stop weed-filer-server
+```
+
+* 验证读
+```bash
+#!/bin/bash
+for i in $(seq 1 100)
+do
+  curl  "http:/10.119.108.51:8888/test/$i.txt"
+done
+```
+* 验证写
+```bash
+echo "new file data" >> /home/jupiter/liqian35/seaweedfs/new.txt
+curl -F file=@/home/jupiter/liqian35/seaweedfs/new.txt http://10.119.108.51:8888/test
+```
+
