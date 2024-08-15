@@ -1,6 +1,6 @@
 # SeaweedFS
 
-## 单点
+## 单点测试
 
 * 启动脚本
 
@@ -12,7 +12,6 @@
 # volume 8080
 # filer  8888
 # s3     8333
-
 
 mkdir -p /data/seaweedfs/log/master
 mkdir -p /data/seaweedfs/log/volume
@@ -114,9 +113,13 @@ server \
 -s3.config=/data/config/config.json
 ```
 
-* filer配置文件
+* seaweedfs配置文件按约定目录优先级寻找,weed -h 可查看有限级
+
 ```bash
+# 生成filer 配置文件
 weed scaffold -config=filer > filer.toml
+# 生成安全配置文件
+weed scaffold -config=security > security.toml
 ```
 
 filer store高可用部署下建议使用redis
@@ -128,370 +131,9 @@ filer store高可用部署下建议使用redis
 * 文件重命名：文件重命名是一个O(1)的操作，删除老的元数据然后插入新的元数据，不需要修改volume中保存的文件内容
 * 目录重命名：目录重命名是一个O(N)的操作（N为目录下文件与目录的数量），需要修改所有这些记录的元数据，不需要修改volume中保存的文件内容
 
-文件如下：
-```bash
-# filer 配置文件
-# 在 weed filer 或者 weed server -filer 使用
-# filer 配置文件地址优先级如下
-#    ./filer.toml
-#    $HOME/.seaweedfs/filer.toml
-#    /usr/local/etc/seaweedfs/filer.toml
-#    /etc/seaweedfs/filer.toml
 
 
-# filer server 配置
-[filer.options]
-# 允许递归删除
-recursive_delete = false
-# 最大文件名长度
-max_file_name_length = 255
-
-# filer store 配置
-[leveldb2]
-enabled = true
-dir = "./filerldb2"
-
-[leveldb3]
-enabled = false
-dir = "./filerldb3"
-
-[rocksdb]
-enabled = false
-dir = "./filerrdb"
-
-[sqlite]
-enabled = false
-dbFile = "./filer.db"
-
-[mysql]  #  memsql, tidb 配置同mysql
-# CREATE TABLE IF NOT EXISTS `filemeta` (
-#   `dirhash`   BIGINT NOT NULL       COMMENT 'first 64 bits of MD5 hash value of directory field',
-#   `name`      VARCHAR(766) NOT NULL COMMENT 'directory or file name',
-#   `directory` TEXT NOT NULL         COMMENT 'full path to parent directory',
-#   `meta`      LONGBLOB,
-#   PRIMARY KEY (`dirhash`, `name`)
-# ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
-
-enabled = false
-# dsn will take priority over "hostname, port, username, password, database".
-# [username[:password]@][protocol[(address)]]/dbname[?param1=value1&...&paramN=valueN]
-dsn = "root@tcp(localhost:3306)/seaweedfs?collation=utf8mb4_bin"
-hostname = "localhost"
-port = 3306
-username = "root"
-password = ""
-database = ""      # create or use an existing database
-connection_max_idle = 2
-connection_max_open = 100
-connection_max_lifetime_seconds = 0
-interpolateParams = false
-enableUpsert = true
-upsertQuery = """INSERT INTO `%s` (`dirhash`,`name`,`directory`,`meta`) VALUES (?,?,?,?) AS `new` ON DUPLICATE KEY UPDATE `meta` = `new`.`meta`"""
-
-[mysql2]  # memsql, tidb 配置同mysql
-enabled = false
-createTable = """
-  CREATE TABLE IF NOT EXISTS `%s` (
-    `dirhash`   BIGINT NOT NULL,
-    `name`      VARCHAR(766) NOT NULL,
-    `directory` TEXT NOT NULL,
-    `meta`      LONGBLOB,
-    PRIMARY KEY (`dirhash`, `name`)
-  ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
-"""
-hostname = "localhost"
-port = 3306
-username = "root"
-password = ""
-database = ""              # create or use an existing database     
-connection_max_idle = 2
-connection_max_open = 100
-connection_max_lifetime_seconds = 0
-interpolateParams = false
-enableUpsert = true
-upsertQuery = """INSERT INTO `%s` (`dirhash`,`name`,`directory`,`meta`) VALUES (?,?,?,?) AS `new` ON DUPLICATE KEY UPDATE `meta` = `new`.`meta`"""
-
-[postgres] # cockroachdb, YugabyteDB 配置同postgresql
-# CREATE TABLE IF NOT EXISTS filemeta (
-#   dirhash     BIGINT,
-#   name        VARCHAR(65535),
-#   directory   VARCHAR(65535),
-#   meta        bytea,
-#   PRIMARY KEY (dirhash, name)
-# );
-enabled = false
-hostname = "localhost"
-port = 5432
-username = "postgres"
-password = ""
-database = "postgres"          # create or use an existing database
-schema = ""
-sslmode = "disable"
-connection_max_idle = 100
-connection_max_open = 100
-connection_max_lifetime_seconds = 0
-enableUpsert = true
-upsertQuery = """UPSERT INTO "%[1]s" (dirhash,name,directory,meta) VALUES($1,$2,$3,$4)"""
-
-[postgres2]
-enabled = false
-createTable = """
-  CREATE TABLE IF NOT EXISTS "%s" (
-    dirhash   BIGINT,
-    name      VARCHAR(65535),
-    directory VARCHAR(65535),
-    meta      bytea,
-    PRIMARY KEY (dirhash, name)
-  );
-"""
-hostname = "localhost"
-port = 5432
-username = "postgres"
-password = ""
-database = "postgres"          # create or use an existing database
-schema = ""
-sslmode = "disable"
-connection_max_idle = 100
-connection_max_open = 100
-connection_max_lifetime_seconds = 0
-enableUpsert = true
-upsertQuery = """UPSERT INTO "%[1]s" (dirhash,name,directory,meta) VALUES($1,$2,$3,$4)"""
-
-[cassandra]
-# CREATE TABLE filemeta (
-#    directory varchar,
-#    name varchar,
-#    meta blob,
-#    PRIMARY KEY (directory, name)
-# ) WITH CLUSTERING ORDER BY (name ASC);
-enabled = false
-keyspace = "seaweedfs"
-hosts = [
-    "localhost:9042",
-]
-username = ""
-password = ""
-# This changes the data layout. Only add new directories. Removing/Updating will cause data loss.
-superLargeDirectories = []
-# Name of the datacenter local to this filer, used as host selection fallback.
-localDC = ""
-# Gocql connection timeout, default: 600ms
-connection_timeout_millisecond = 600
-
-[hbase]
-enabled = false
-zkquorum = ""
-table = "seaweedfs"
-
-[redis2]
-enabled = false
-address = "localhost:6379"
-password = ""
-database = 0
-# This changes the data layout. Only add new directories. Removing/Updating will cause data loss.
-superLargeDirectories = []
-
-[redis2_sentinel]
-enabled = false
-addresses = ["172.22.12.7:26379","172.22.12.8:26379","172.22.12.9:26379"]
-masterName = "master"
-username = ""
-password = ""
-database = 0
-
-[redis_cluster2]
-enabled = false
-addresses = [
-    "localhost:30001",
-    "localhost:30002",
-    "localhost:30003",
-    "localhost:30004",
-    "localhost:30005",
-    "localhost:30006",
-]
-password = ""
-# allows reads from slave servers or the master, but all writes still go to the master
-readOnly = false
-# automatically use the closest Redis server for reads
-routeByLatency = false
-# This changes the data layout. Only add new directories. Removing/Updating will cause data loss.
-superLargeDirectories = []
-
-[redis_lua]
-enabled = false
-address = "localhost:6379"
-password = ""
-database = 0
-# This changes the data layout. Only add new directories. Removing/Updating will cause data loss.
-superLargeDirectories = []
-
-[redis_lua_sentinel]
-enabled = false
-addresses = ["172.22.12.7:26379","172.22.12.8:26379","172.22.12.9:26379"]
-masterName = "master"
-username = ""
-password = ""
-database = 0
-
-[redis_lua_cluster]
-enabled = false
-addresses = [
-    "localhost:30001",
-    "localhost:30002",
-    "localhost:30003",
-    "localhost:30004",
-    "localhost:30005",
-    "localhost:30006",
-]
-password = ""
-# allows reads from slave servers or the master, but all writes still go to the master
-readOnly = false
-# automatically use the closest Redis server for reads
-routeByLatency = false
-# This changes the data layout. Only add new directories. Removing/Updating will cause data loss.
-superLargeDirectories = []
-
-[redis3] # 处于Beta阶段，不建议使用
-enabled = false
-address = "localhost:6379"
-password = ""
-database = 0
-
-[redis3_sentinel]
-enabled = false
-addresses = ["172.22.12.7:26379","172.22.12.8:26379","172.22.12.9:26379"]
-masterName = "master"
-username = ""
-password = ""
-database = 0
-
-[redis_cluster3] # 处于Beta阶段，不建议使用
-enabled = false
-addresses = [
-    "localhost:30001",
-    "localhost:30002",
-    "localhost:30003",
-    "localhost:30004",
-    "localhost:30005",
-    "localhost:30006",
-]
-password = ""
-# allows reads from slave servers or the master, but all writes still go to the master
-readOnly = false
-# automatically use the closest Redis server for reads
-routeByLatency = false
-
-[etcd]
-enabled = false
-servers = "localhost:2379"
-username = ""
-password = ""
-key_prefix = "seaweedfs."
-timeout = "3s"
-tls_ca_file=""
-tls_client_crt_file=""
-tls_client_key_file=""
-
-[mongodb]
-enabled = false
-uri = "mongodb://localhost:27017"
-username = ""
-password = ""
-ssl = false
-ssl_ca_file = ""
-ssl_cert_file = ""
-ssl_key_file = ""
-insecure_skip_verify = false
-option_pool_size = 0
-database = "seaweedfs"
-
-[elastic7]
-enabled = false
-servers = [
-    "http://localhost1:9200",
-    "http://localhost2:9200",
-    "http://localhost3:9200",
-]
-username = ""
-password = ""
-sniff_enabled = false
-healthcheck_enabled = false
-# 建议增加该值，确保 Elastic 中的值大于或等于此处
-index.max_result_window = 10000
-
-
-[arangodb] # 开发中，禁止使用
-enabled = false
-db_name = "seaweedfs"
-servers=["http://localhost:8529"] # 集群填写多个
-password=""
-insecure_skip_verify = true
-
-[ydb]
-enabled = false
-dsn = "grpc://localhost:2136?database=/local"
-prefix = "seaweedfs"
-useBucketPrefix = true # Fast Bucket Deletion
-poolSizeLimit = 50
-dialTimeOut = 10
-
-# 
-##########################
-# To add path-specific filer store:
-#
-# 1. Add a name following the store type separated by a dot ".". E.g., cassandra.tmp
-# 2. Add a location configuration. E.g., location = "/tmp/"
-# 3. Copy and customize all other configurations.
-#     Make sure they are not the same if using the same store type!
-# 4. Set enabled to true
-#
-# The following is just using redis as an example
-##########################
-[redis2.tmp]
-enabled = false
-location = "/tmp/"
-address = "localhost:6379"
-password = ""
-database = 1
-
-[tikv]
-enabled = false
-pdaddrs = "localhost:2379" #集群地址用逗号分隔 localhost:2379,localhost:2380,localhost:2381
-deleterange_concurrency = 1
-enable_1pc = false
-ca_path=""
-cert_path=""
-key_path=""
-verify_cn=""
-```
-
-* 删除脚本
-
-```bash
-#/bin/bash
-systemctl disable weed-master-server.service
-systemctl disable weed-volume-server.service
-systemctl disable weed-filer-server.service
-systemctl disable weed-s3-server.service
-systemctl stop weed-master-server.service
-systemctl stop weed-volume-server.service
-systemctl stop weed-filer-server.service
-systemctl stop weed-s3-server.service
-rm -f /usr/lib/systemd/system/weed-master-server.service
-rm -f /usr/lib/systemd/system/weed-volume-server.service
-rm -f /usr/lib/systemd/system/weed-filer-server.service
-rm -f /usr/lib/systemd/system/weed-s3-server.service
-rm -rf /data/seaweedfs
-```
-
-## 高可用
-
-环境准备
-
-主机：
-* 10.119.108.51
-* 10.119.108.52
-* 10.119.108.53
+## 高可用无安全配置
 
 Redis:
 ```bash
@@ -552,7 +194,6 @@ database = 0
 superLargeDirectories = []
 EOF
 
-
 create_service(){
 cat <<EOF > /usr/lib/systemd/system/weed-${service_name}-server.service
 [Unit]
@@ -595,7 +236,8 @@ systemctl enable weed-volume-server.service
 systemctl enable weed-filer-server.service
 ```
 
-## 使用
+
+## API
 
 * master api [Github](https://github.com/seaweedfs/seaweedfs/wiki/Master-Server-API)
 ```bash
@@ -675,6 +317,14 @@ s3cmd del s3://mybucket/hell_seaweedfs.txt
 # 删除桶
 s3cmd rb s3://mybucket
 ```
+
+* weed mount
+```bash
+# -dir 本地挂载点
+# -filer.path 远端目录，不存在会创建
+weed mount -filer=10.119.108.54:8888 -dir /mnt -filer.path=/testdir
+```
+
 
 ## 高可用验证
 
@@ -766,3 +416,360 @@ echo "new file data" >> /home/jupiter/liqian35/seaweedfs/new.txt
 curl -F file=@/home/jupiter/liqian35/seaweedfs/new.txt http://10.119.108.51:8888/test
 ```
 
+## 生产配置
+
+* 主机
+```
+10.119.108.51
+10.119.108.52
+10.119.108.53
+```
+
+* vip
+```bash
+# vip 用来保证filer,s3高可用
+10.119.108.54
+```
+
+* 证书
+```bash
+openssl genrsa -out ca.key 2048
+openssl req -x509 -new -nodes -key ca.key -sha256 -days 365 -out ca.crt
+openssl req -nodes -newkey rsa:2048 -keyout server.key -out server.csr -subj "/CN=SeaweedFS"
+openssl x509 -req -CA ca.crt -CAkey ca.key -CAcreateserial -in server.csr -out server.crt -days 3650
+```
+
+* 目录结构
+```
+root@installerdev01:/data# tree /data/server/weed-tst/
+/data/server/weed-tst/
+├── data
+│   ├── cert
+│   │   ├── ca.crt
+│   │   ├── server.crt
+│   │   └── server.key
+│   ├── conf
+│   │   ├── config.json
+│   │   ├── filer.toml
+│   │   └── security.toml
+│   ├── master
+│   │   └── m9333
+│   │       ├── conf
+│   │       ├── log
+│   │       └── snapshot
+│   └── volume
+│       └── vol_dir.uuid
+└── log
+    ├── filer
+    │   ├── weed.INFO -> weed.installerdev01.root.log.INFO.20240815-093927.1
+    │   ├── weed.installerdev01.root.log.INFO.20240815-093927.1
+    │   ├── weed.installerdev01.root.log.WARNING.20240815-093927.1
+    │   └── weed.WARNING -> weed.installerdev01.root.log.WARNING.20240815-093927.1
+    ├── master
+    │   ├── weed.INFO -> weed.installerdev01.root.log.INFO.20240815-093904.1
+    │   └── weed.installerdev01.root.log.INFO.20240815-093904.1
+    ├── s3
+    │   ├── weed.INFO -> weed.installerdev01.root.log.INFO.20240815-093906.1
+    │   └── weed.installerdev01.root.log.INFO.20240815-093906.1
+    └── volume
+        ├── weed.INFO -> weed.installerdev01.root.log.INFO.20240815-093905.1
+        └── weed.installerdev01.root.log.INFO.20240815-093905.1
+```
+
+* s3 配置config.json
+```json
+{
+    "identities": [
+      {
+        "name": "anonymous",
+        "actions": [
+          "Read"
+        ]
+      },
+      {
+        "name": "root",
+        "credentials": [
+          {
+            "accessKey": "testak",
+            "secretKey": "testsk"
+          }
+        ],
+        "actions": [
+          "Admin",
+          "Read",
+          "List",
+          "Tagging",
+          "Write"
+        ]
+      }
+    ]
+  }
+```
+* filer 配置filer.toml
+
+1. master服务禁用http,grpc 使用tls来保证安全
+2. volume服务http不安全，但是url需要从master获取，mater禁用http，没有地方获取fid,所以安全，grpc使用tls保证安全
+3. filer服务不能禁用http,-disableHttp,s3服务使用http与filer通信，所以filer添加jwt认证保证http安全，filer grpc使用tls保证安全
+4. s3 s3使用accessKey,secretKey保证安全
+
+```toml
+[filer.options]
+recursive_delete = false
+max_file_name_length = 512
+
+[redis2_sentinel]
+enabled = true
+addresses = ["10.119.108.52:26379","10.119.108.51:26379","10.119.108.53:26379"]
+masterName = "sentinel_master"
+username = ""
+password = "123456"
+database = 0
+```
+* security配置security.toml
+```toml
+[filer.options]
+recursive_delete = false
+max_file_name_length = 512
+[redis2_sentinel]
+enabled = true
+
+addresses = ["10.119.108.52:26379","10.119.108.51:26379","10.119.108.53:26379"]
+masterName = "sentinel_master"
+username = ""
+password = "123456"
+database = 0root@installerdev01:/data/server/weed-tst/data/conf# cat security.toml 
+[cors.allowed_origins]
+values = "*"  
+
+[access]
+ui = false
+
+[filer.expose_directory_metadata]
+enabled = true
+
+[jwt.signing]
+key = ""
+expires_after_seconds = 120     
+
+[jwt.signing.read]
+key = ""
+expires_after_seconds = 120
+
+
+[jwt.filer_signing]
+key = "73h2h6gsg6"
+expires_after_seconds = 120
+
+[jwt.filer_signing.read]
+key = "73h2h6gsg6"
+expires_after_seconds = 120
+
+[grpc]
+ca = "/data/cert/ca.crt"
+allowed_wildcard_domain = ""
+
+[grpc.volume]
+cert = "/data/cert/server.crt"
+key = "/data/cert/server.key"
+allowed_commonNames = ""
+
+[grpc.master]
+cert = "/data/cert/server.crt"
+key = "/data/cert/server.key"
+allowed_commonNames = ""
+
+[grpc.filer]
+cert = "/data/cert/server.crt"
+key = "/data/cert/server.key"
+allowed_commonNames = ""
+
+[grpc.s3]
+cert = ""
+key = ""
+allowed_commonNames = ""   
+
+[grpc.msg_broker]
+cert = ""
+key = ""
+allowed_commonNames = ""
+
+[grpc.client]
+cert = "/data/cert/server.crt"
+key = "/data/cert/server.key"
+
+[https.client]
+enabled = false
+cert = ""
+key = ""
+ca = ""
+
+[https.volume]
+cert = ""
+key = ""
+ca = ""
+
+[https.master]
+cert = ""
+key = ""
+ca = ""
+
+[https.filer]
+cert = ""
+key = ""
+ca = ""
+```
+* mater service file
+```bash
+[Unit]
+Description=Seaweedfs Master Container
+Requires=docker.service
+After=docker.service
+
+[Service]
+Restart=always
+ExecStartPre=-/bin/docker stop weed-tst-master
+ExecStartPre=-/bin/docker rm -f weed-tst-master
+ExecStart=/bin/docker run \
+    --rm \
+    --net=host \
+    -l app=weed-tst \
+    -l component=seaweedfs \
+    -v /data/server/weed-tst/data/master:/data/seaweedfs/master \
+    -v /data/server/weed-tst/data/conf:/etc/seaweedfs \
+    -v /data/server/weed-tst/data/cert:/data/cert \
+    -v /data/server/weed-tst/log/master:/data/seaweedfs/log \
+    --name weed-tst-master \
+    registry-public.lenovo.com/earth_system/seaweedfs:3.71 \
+    -logdir=/data/seaweedfs/log \
+    master \
+    -mdir=/data/seaweedfs/master \
+    -volumeSizeLimitMB=10000 \
+    -ip=10.119.108.51 \
+    -port=9333 \
+    -port.grpc=19333 \
+    -disableHttp \
+-peers=10.119.108.51:9333,10.119.108.52:9333,10.119.108.53:9333 \
+    -defaultReplication=001
+
+ExecStop=/bin/docker stop weed-tst-master
+ExecStopPost=/bin/docker rm -f weed-tst-master
+
+[Install]
+WantedBy=multi-user.target
+```
+* volume service file
+```bash
+[Unit]
+Description=Seaweedfs Volume Container
+Requires=docker.service
+After=docker.service
+
+[Service]
+Restart=always
+ExecStartPre=-/bin/docker stop weed-tst-volume
+ExecStartPre=-/bin/docker rm -f weed-tst-volume
+ExecStart=/bin/docker run \
+    --rm \
+    --net=host \
+    -l app=weed-tst \
+    -l component=seaweedfs \
+    -v /data/server/weed-tst/data/volume:/data/seaweedfs/volume \
+    -v /data/server/weed-tst/data/conf:/etc/seaweedfs \
+    -v /data/server/weed-tst/data/cert:/data/cert \
+    -v /data/server/weed-tst/log/volume:/data/seaweedfs/log \
+    --name weed-tst-volume \
+    registry-public.lenovo.com/earth_system/seaweedfs:3.71 \
+    -logdir=/data/seaweedfs/log \
+    volume \
+    -dir=/data/seaweedfs/volume \
+    -max=50 \
+    -ip=10.119.108.51 \
+    -port=8080 \
+    -port.grpc=18080 \
+    -mserver=10.119.108.51:9333,10.119.108.52:9333,10.119.108.53:9333 \
+
+ExecStop=/bin/docker stop weed-tst-volume
+ExecStopPost=/bin/docker rm -f weed-tst-volume
+
+[Install]
+WantedBy=multi-user.target
+```
+* filer service file
+1. 这里注意-ip=0.0.0.0,因为需要通过vip访问，如果填写本机ip,则无法通过vip访问
+```bash
+[Unit]
+Description=Seaweedfs Filer Container
+Requires=docker.service
+After=docker.service
+
+[Service]
+Restart=always
+ExecStartPre=-/bin/docker stop weed-tst-filer
+ExecStartPre=-/bin/docker rm -f weed-tst-filer
+ExecStart=/bin/docker run \
+    --rm \
+    --net=host \
+    -l app=weed-tst \
+    -l component=seaweedfs \
+    -v /data/server/weed-tst/data/conf:/etc/seaweedfs \
+    -v /data/server/weed-tst/data/cert:/data/cert \
+    -v /data/server/weed-tst/log/filer:/data/seaweedfs/log \
+    --name weed-tst-filer \
+    registry-public.lenovo.com/earth_system/seaweedfs:3.71 \
+    -logdir=/data/seaweedfs/log \
+    filer \
+    -ip=0.0.0.0 \
+    -port=8888 \
+    -port.grpc=18888 \
+    -master=10.119.108.51:9333,10.119.108.52:9333,10.119.108.53:9333 \
+
+ExecStop=/bin/docker stop weed-tst-filer
+ExecStopPost=/bin/docker rm -f weed-tst-filer
+
+[Install]
+WantedBy=multi-user.target
+```
+* s3 service file
+1. s3 -ip=0.0.0.0 同filer,这里没有填写-filer，默认执行localhost:8888
+```bash
+[Unit]
+Description=Seaweedfs S3 Container
+Requires=docker.service
+After=docker.service
+
+[Service]
+Restart=always
+ExecStartPre=-/bin/docker stop weed-tst-s3
+ExecStartPre=-/bin/docker rm -f weed-tst-s3
+ExecStart=/bin/docker run \
+    --rm \
+    --net=host \
+    -l app=weed-tst \
+    -l component=seaweedfs \
+    -v /data/server/weed-tst/data/conf:/etc/seaweedfs \
+    -v /data/server/weed-tst/data/cert:/data/cert \
+    -v /data/server/weed-tst/log/s3:/data/seaweedfs/log \
+    --name weed-tst-s3 \
+    registry-public.lenovo.com/earth_system/seaweedfs:3.71 \
+    -logdir=/data/seaweedfs/log \
+    s3 \
+    -port=8333 \
+    -port.grpc=18333 \
+    -config=/etc/seaweedfs/config.json \
+    -ip.bind=0.0.0.0
+
+ExecStop=/bin/docker stop weed-tst-filer
+ExecStopPost=/bin/docker rm -f weed-tst-filer
+
+[Install]
+WantedBy=multi-user.target
+```
+* 客户端mount，需要/etc/seaweedfs/security.toml 
+```toml
+[grpc]
+ca = "/data/cert/ca.crt"
+
+[grpc.client]
+cert = "/data/cert/server.crt"
+key = "/data/cert/server.key
+```
