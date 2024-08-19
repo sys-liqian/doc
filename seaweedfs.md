@@ -322,7 +322,14 @@ s3cmd rb s3://mybucket
 ```bash
 # -dir 本地挂载点
 # -filer.path 远端目录，不存在会创建
-weed mount -filer=10.119.108.54:8888 -dir /mnt -filer.path=/testdir
+# 10.119.108.54 为vip
+weed -v=4  mount -filer=10.119.108.54:10002 -dir /mnt/tst -collection=col1 -collectionQuotaMB=100 -filer.path=/testdir
+weed -v=4  mount -filer=10.119.108.51:10002,10.119.108.52:10002,10.119.108.53:10002  -dir /mnt/tst
+# mount 
+# 使用mount可能和内核以及fuse版本有关系，当前在ubuntu 22.04 kernel 5.10测试通过，在rockylinux 8 kernel 4.18 测试不通过
+cp weed /sbin/weed
+mount -t fuse.weed fuse /mnt/tst -o "filer=10.119.108.54:10002,collection=col1"
+mount -t fuse./usr/local/bin/weed fuse /mnt/tst -o "filer='10.119.108.51:10002,10.119.108.52:10002,10.119.108.53:10002'"
 ```
 
 
@@ -525,19 +532,9 @@ username = ""
 password = "123456"
 database = 0
 ```
+
 * security配置security.toml
 ```toml
-[filer.options]
-recursive_delete = false
-max_file_name_length = 512
-[redis2_sentinel]
-enabled = true
-
-addresses = ["10.119.108.52:26379","10.119.108.51:26379","10.119.108.53:26379"]
-masterName = "sentinel_master"
-username = ""
-password = "123456"
-database = 0root@installerdev01:/data/server/weed-tst/data/conf# cat security.toml 
 [cors.allowed_origins]
 values = "*"  
 
@@ -621,6 +618,7 @@ ca = ""
 * mater service file
 ```bash
 [Unit]
+[Unit]
 Description=Seaweedfs Master Container
 Requires=docker.service
 After=docker.service
@@ -644,11 +642,11 @@ ExecStart=/bin/docker run \
     master \
     -mdir=/data/seaweedfs/master \
     -volumeSizeLimitMB=10000 \
-    -ip=10.119.108.51 \
-    -port=9333 \
-    -port.grpc=19333 \
+    -ip=10.119.108.52 \
+    -port=10000 \
+    -port.grpc=20000 \
     -disableHttp \
--peers=10.119.108.51:9333,10.119.108.52:9333,10.119.108.53:9333 \
+    -peers=10.119.108.51:10000,10.119.108.52:10000,10.119.108.53:10000 \
     -defaultReplication=001
 
 ExecStop=/bin/docker stop weed-tst-master
@@ -683,10 +681,10 @@ ExecStart=/bin/docker run \
     volume \
     -dir=/data/seaweedfs/volume \
     -max=50 \
-    -ip=10.119.108.51 \
-    -port=8080 \
-    -port.grpc=18080 \
-    -mserver=10.119.108.51:9333,10.119.108.52:9333,10.119.108.53:9333 \
+    -ip=10.119.108.52 \
+    -port=10001 \
+    -port.grpc=20001 \
+    -mserver=10.119.108.51:10000,10.119.108.52:10000,10.119.108.53:10000 \
 
 ExecStop=/bin/docker stop weed-tst-volume
 ExecStopPost=/bin/docker rm -f weed-tst-volume
@@ -695,8 +693,9 @@ ExecStopPost=/bin/docker rm -f weed-tst-volume
 WantedBy=multi-user.target
 ```
 * filer service file
-1. 这里注意-ip=0.0.0.0,因为需要通过vip访问，如果填写本机ip,则无法通过vip访问
+1. 这里注意-ip使用默认值10.119.108.52,-ip.bind=0.0.0.0因为需要通过vip访问
 ```bash
+[Unit]
 [Unit]
 Description=Seaweedfs Filer Container
 Requires=docker.service
@@ -718,10 +717,10 @@ ExecStart=/bin/docker run \
     registry-public.lenovo.com/earth_system/seaweedfs:3.71 \
     -logdir=/data/seaweedfs/log \
     filer \
-    -ip=0.0.0.0 \
-    -port=8888 \
-    -port.grpc=18888 \
-    -master=10.119.108.51:9333,10.119.108.52:9333,10.119.108.53:9333 \
+    -ip.bind=0.0.0.0 \
+    -port=10002 \
+    -port.grpc=20002 \
+    -master=10.119.108.51:10000,10.119.108.52:10000,10.119.108.53:10000 \
 
 ExecStop=/bin/docker stop weed-tst-filer
 ExecStopPost=/bin/docker rm -f weed-tst-filer
@@ -730,7 +729,7 @@ ExecStopPost=/bin/docker rm -f weed-tst-filer
 WantedBy=multi-user.target
 ```
 * s3 service file
-1. s3 -ip=0.0.0.0 同filer,这里没有填写-filer，默认执行localhost:8888
+1. s3 -ip.bind=0.0.0.0 同filer
 ```bash
 [Unit]
 Description=Seaweedfs S3 Container
@@ -753,8 +752,9 @@ ExecStart=/bin/docker run \
     registry-public.lenovo.com/earth_system/seaweedfs:3.71 \
     -logdir=/data/seaweedfs/log \
     s3 \
-    -port=8333 \
-    -port.grpc=18333 \
+    -port=10003 \
+    -port.grpc=20003 \
+    -filer=localhost:10002 \
     -config=/etc/seaweedfs/config.json \
     -ip.bind=0.0.0.0
 
