@@ -41,11 +41,9 @@ RUN apt clean && apt autoclean && apt -y autoremove && \
 
 ADD go1.23.0.linux-amd64.tar.gz /usr/local
  
-RUN echo "export PATH=$PATH:/usr/local/go/bin" >> /etc/profile && \
+RUN echo "export PATH=$PATH:/usr/local/go/bin:/root/go/bin" >> /etc/profile && \
     echo "export GOPROXY=https://goproxy.cn" >> /etc/profile && \
-    echo "export GOPATH=/root/go" >> /etc/profile && \
-    echo "export PATH=$PATH:/root/go/bin" >> /etc/profile && \
     echo "export CGO_ENABLED=1" >> /etc/profile
     
-EXPOSE 22
-CMD ["/usr/sbin/sshd", "-D"]
+EXPOSE 20022
+CMD ["/usr/sbin/sshd", "-p", "20022","-D"]
