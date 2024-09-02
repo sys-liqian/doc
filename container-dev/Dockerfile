@@ -17,7 +17,7 @@ RUN echo "deb https://mirrors.aliyun.com/ubuntu/ noble main restricted universe 
     
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y vim curl git wget iputils-ping tree gcc make tar unzip
+    apt-get install -y vim curl git wget iputils-ping tree gcc make tar unzip sshpass
 
 RUN apt-get install -y openssh-server && \ 
     mkdir /var/run/sshd && \
@@ -36,8 +36,8 @@ RUN git config --global user.name liqian35 && \
     git config --global user.email liqian35@lenovo.com && \
     ssh-keygen -t rsa -b 4096 -C "liqian35@lenovo.com" -f /root/.ssh/id_rsa -N "" -q
 
-RUN apt clean && apt autoclean && apt -y autoremove && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+#RUN apt clean && apt autoclean && apt -y autoremove && \
+#    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 ADD go1.23.0.linux-amd64.tar.gz /usr/local
  
