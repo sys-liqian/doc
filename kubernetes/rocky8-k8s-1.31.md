@@ -1,4 +1,4 @@
-# Rocky9 kubernetes 1.31.x
+# Rocky8 kubernetes 1.31.x
 
 安装docker
 ```bash
@@ -8,7 +8,9 @@ yum install -y docker-ce
 mkdir /etc/docker
 cat <<EOF >/etc/docker/daemon.json 
 {
-  "registry-mirrors": ["https://uli2l5lo.mirror.aliyuncs.com"]
+  "registry-mirrors":["https://registry.docker-cn.com","https://docker.mirrors.ustc.edu.cn","https://ustc-edu-cn.mirror.aliyuncs.com","https://qbd2mtyh.mirror.aliyuncs.com"],
+  "insecure-registries":[],
+  "data-root": "/data/docker"
 }
 EOF
 systemctl daemon-reload
@@ -18,6 +20,7 @@ systemctl enable docker
 ---
 内核参数修改，关闭swap
 ```bash
+swapoff -a
 modprobe br_netfilter
 cat > /etc/sysctl.d/k8s.conf <<EOF
 net.bridge.bridge-nf-call-ip6tables = 1
@@ -25,6 +28,7 @@ net.bridge.bridge-nf-call-iptables = 1
 net.ipv4.ip_forward = 1
 EOF
 sysctl -p /etc/sysctl.d/k8s.conf
+sed -i 's/enforcing/disabled/' /etc/selinux/config
 setenforce 0
 ```
 ---
@@ -87,7 +91,7 @@ EOF
 ```
 cri-docker配置Socket文件
 ```bash
-cat <<EOF > 
+cat <<EOF > /usr/lib/systemd/system/cri-docker.socket
 [Unit]
 Description=CRI Docker Socket for the API
 PartOf=cri-docker.service
@@ -164,18 +168,18 @@ networking:
   serviceSubnet: 10.96.0.0/12
 proxy: {}
 ```
-初始化,只在主节点操作
+init,只在主节点操作
 ```bash
 kubeadm init --config=./kubeadm-config.yaml 
 ```
 
-JOIN,只在从节点操作
+join,只在从节点操作
 ```bash
 kubeadm join 10.120.68.68:6443 --token abcdef.0123456789abcdef --discovery-token-ca-cert-hash sha256:855a5a7df823abbe6eb50bd5450874f9310de156d7585b8cd41576f8a1fce83e  --cri-socket /var/run/cri-dockerd.sock 
 ```
 kubectl bash补全
 ```bash
-yum install bash-completion
+yum install -y bash-completion
 source /usr/share/bash-completion/bash_completion
 echo 'source <(kubectl completion bash)' >>~/.bashrc
 source /usr/share/bash-completion/bash_completion
@@ -192,22 +196,20 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
 [文档地址](https://docs.tigera.io/calico/latest/getting-started/kubernetes/self-managed-onprem/onpremises#install-calico-with-kubernetes-api-datastore-50-nodes-or-less) 使用Manifest安装
 
-当前安装版本为3.26.1,并且k8s pod使用的是默认的cidr(192.168.0.0/16),如果不是默认需要修改(CALICO_IPV4POOL_CIDR)
+当前安装版本为3.28.1,并且k8s pod使用的是默认的cidr(192.168.0.0/16),如果不是默认需要修改(CALICO_IPV4POOL_CIDR)
 
 kubernetes清理
 ```bash
-sudo yum remove -y kubeadm kubectl kubelet kubernetes-cni kube*   
-sudo yum autoremove -y
-
+kubeadm reset
 systemctl stop kubelet
 systemctl disable kubelet
 rm -rf /etc/systemd/system/kubelet.service
 rm -rf /etc/systemd/system/kube*
-
+sudo yum remove -y kubeadm kubectl kubelet kubernetes-cni kube*   
+sudo yum autoremove -y
 sudo rm -rf ~/.kube
 sudo rm -rf /etc/kubernetes/
 sudo rm -rf /var/lib/kube*
-
 sudo rm -rf /etc/lib/etcd
 sudo rm -rf /var/lib/etcd
 ```
