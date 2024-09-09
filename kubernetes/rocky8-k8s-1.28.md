@@ -1,32 +1,22 @@
 # Rocky8 kubernetes 1.28.x
 
-## 环境准备
-
-关闭swap，注释掉/etc/fstab中swap配置
+环境准备
 ```bash
+swapoff -a
 systemctl stop firewalld  
 systemctl disable firewalld
 sed -i 's/enforcing/disabled/' /etc/selinux/config
 setenforce 0
-```
-然后重启机器
-
-## 内核参数修改
-```bash
 modprobe br_netfilter
-
 cat > /etc/sysctl.d/k8s.conf <<EOF
 net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-iptables = 1
 net.ipv4.ip_forward = 1
 EOF
-
 sysctl -p /etc/sysctl.d/k8s.conf
 ```
-
-## 安装kubeadm、kubelet、kubectl
-
-### 安装源
+----
+安装kubeadm、kubelet、kubectl
 ```bash
 cat <<EOF > /etc/yum.repos.d/kubernetes.repo
 [kubernetes]
@@ -37,21 +27,17 @@ gpgcheck=1
 repo_gpgcheck=1
 gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg https://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
 EOF
-```
-
-### 安装kubeadm,kubelet,kubectl
-```bash
 yum install kubelet-1.28.2 kubeadm-1.28.2 kubectl-1.28.2  --nogpgcheck
-systemctl enable kubelet && systemctl start kubelet
+systemctl enable kubelet && systemctl start kubele
 ```
-
-### 安装cri-docker[下载地址](https://github.com/Mirantis/cri-dockerd/releases)
+---
+安装cri-docker[下载地址](https://github.com/Mirantis/cri-dockerd/releases)
 ```bash
 tar -xf cri-dockerd-0.3.8.amd64.tgz 
 mv cri-dockerd/cri-dockerd /usr/bin/
 chmod +x /usr/bin/cri-dockerd
 ```
-#### cri-docker配置服务文件
+配置cri-docker配置服务文件
 pause:3.9 具体使用哪个版本可以用以下命令确认
 ```bash
 kubeadm config images list
@@ -83,9 +69,6 @@ KillMode=process
 [Install]
 WantedBy=multi-user.target
 EOF
-```
-#### cri-docker配置Socket文件
-```bash
 cat <<"EOF" > /usr/lib/systemd/system/cri-docker.socket
 [Unit]
 Description=CRI Docker Socket for the API
@@ -98,21 +81,18 @@ SocketGroup=docker
 [Install]
 WantedBy=sockets.target
 EOF
-```
-#### 启动cri-dockerd
-```bash
 systemctl daemon-reload
 systemctl enable cri-docker --now
 systemctl is-active cri-docker
 ```
 
-### 生成kubeadm-config文件
-只在主节点操作
+---
+生成kubeadm-config文件,只在主节点操作
 ```bash
 kubeadm config print init-defaults  > kubeadm-config.yaml
 ```
 
-### 修改kubeadm-config.yaml
+修改kubeadm-config.yaml
 只在主节点操作
 ```yaml
 apiVersion: kubeadm.k8s.io/v1beta3
@@ -152,54 +132,51 @@ networking:
   serviceSubnet: 10.96.0.0/12
 scheduler: {}
 ```
-
-### 初始化
-只在主节点操作
+---
+init,只在主节点操作
 ```bash
 kubeadm init --config=./kubeadm-config.yaml 
 ```
 
-### JOIN
-只在从节点操作
+join,只在从节点操作
 ```bash
 kubeadm join 10.120.68.68:6443 --token abcdef.0123456789abcdef --discovery-token-ca-cert-hash sha256:855a5a7df823abbe6eb50bd5450874f9310de156d7585b8cd41576f8a1fce83e  --cri-socket /var/run/cri-dockerd.sock 
 ```
-
-### kubectl bash补全
+---
+kubectl bash补全
 ```bash
 yum install bash-completion
 source /usr/share/bash-completion/bash_completion
 echo 'source <(kubectl completion bash)' >>~/.bashrc
 source /usr/share/bash-completion/bash_completion
 ```
-
-### 拷贝kubeconfig
+---
+拷贝kubeconfig
 ```bash
 mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 ```
-
-## 安装calico
+---
+安装calico
 
 [文档地址](https://docs.tigera.io/calico/latest/getting-started/kubernetes/self-managed-onprem/onpremises#install-calico-with-kubernetes-api-datastore-50-nodes-or-less) 使用Manifest安装
 
+
 当前安装版本为3.26.1,并且k8s pod使用的是默认的cidr(192.168.0.0/16),如果不是默认需要修改(CALICO_IPV4POOL_CIDR)
 
-## kubernetes清理
+---
+kubernetes清理
 ```bash
 sudo yum remove -y kubeadm kubectl kubelet kubernetes-cni kube*   
 sudo yum autoremove -y
-
 systemctl stop kubelet
 systemctl disable kubelet
 rm -rf /etc/systemd/system/kubelet.service
 rm -rf /etc/systemd/system/kube*
-
 sudo rm -rf ~/.kube
 sudo rm -rf /etc/kubernetes/
 sudo rm -rf /var/lib/kube*
-
 sudo rm -rf /etc/lib/etcd
 sudo rm -rf /var/lib/etcd
 ```
