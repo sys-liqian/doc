@@ -19,6 +19,7 @@ mkdir -p /data/seaweedfs/log/filer
 mkdir -p /data/seaweedfs/log/s3
 mkdir -p /data/seaweedfs/master
 mkdir -p /data/seaweedfs/volume
+mkdir -p /data/seaweedfs/filerldb2
 mkdir -p /data/seaweedfs/s3
 
 cat <<EOF >/data/seaweedfs/s3/config.json
@@ -74,7 +75,7 @@ command="/bin/docker run --rm --network host --name seaweedfs-master -v /data/se
 create_service
 
 service_name="volume"
-command="/bin/docker run --rm --network host --name seaweedfs-volume -v /data/seaweedfs/volume:/data/volume -v /data/seaweedfs/log/volume:/data/log/volume chrislusf/seaweedfs:latest -logdir=/data/log/volume volume -dir=/data/volume -max=300 -mserver=localhost:9333"
+command="/bin/docker run --rm --network host --name seaweedfs-volume -v /data/seaweedfs/volume:/data/volume -v /data/seaweedfs/log/volume:/data/log/volume -v /data/seaweedfs/filerldb2:/data/filerldb2 chrislusf/seaweedfs:latest -logdir=/data/log/volume volume -dir=/data/volume -max=300 -mserver=localhost:9333"
 create_service
 
 service_name="filer"
@@ -100,9 +101,6 @@ systemctl enable weed-s3-server.service
 * 单进程启动所有服务
 ```bash
 docker run --rm --network host --name seaweedfs \
--v /data/seaweedfs/data:/data/data \
--v /data/seaweedfs/config:/data/config \
--v /data/seaweedfs/log:/data/log \
 chrislusf/seaweedfs:latest \
 -logdir=/data/log \
 server \
@@ -110,7 +108,6 @@ server \
 -volume.port=8080 \
 -s3 \
 -s3.port=8333 \
--s3.config=/data/config/config.json
 ```
 
 * seaweedfs配置文件按约定目录优先级寻找,weed -h 可查看有限级
@@ -434,12 +431,14 @@ curl -F file=@/home/jupiter/liqian35/seaweedfs/new.txt http://10.119.108.51:8888
 
 * vip
 ```bash
-# vip 用来保证filer,s3高可用
+# vip 用来保证s3高可用
 10.119.108.54
 ```
 
 * 证书
 ```bash
+mkdir -p /data/cert
+cd /data/cert
 openssl genrsa -out ca.key 2048
 openssl req -x509 -new -nodes -key ca.key -sha256 -days 365 -out ca.crt
 openssl req -nodes -newkey rsa:2048 -keyout server.key -out server.csr -subj "/CN=SeaweedFS"
@@ -448,8 +447,8 @@ openssl x509 -req -CA ca.crt -CAkey ca.key -CAcreateserial -in server.csr -out s
 
 * 目录结构
 ```
-root@installerdev01:/data# tree /data/server/weed-tst/
-/data/server/weed-tst/
+root@installerdev01:/data# tree /data/server/sea
+/data/server/sea
 ├── data
 │   ├── cert
 │   │   ├── ca.crt
@@ -459,8 +458,9 @@ root@installerdev01:/data# tree /data/server/weed-tst/
 │   │   ├── config.json
 │   │   ├── filer.toml
 │   │   └── security.toml
+│   ├── filerldb2
 │   ├── master
-│   │   └── m9333
+│   │   └── m7200
 │   │       ├── conf
 │   │       ├── log
 │   │       └── snapshot
@@ -468,22 +468,26 @@ root@installerdev01:/data# tree /data/server/weed-tst/
 │       └── vol_dir.uuid
 └── log
     ├── filer
-    │   ├── weed.INFO -> weed.installerdev01.root.log.INFO.20240815-093927.1
-    │   ├── weed.installerdev01.root.log.INFO.20240815-093927.1
-    │   ├── weed.installerdev01.root.log.WARNING.20240815-093927.1
-    │   └── weed.WARNING -> weed.installerdev01.root.log.WARNING.20240815-093927.1
+    │   ├── weed.INFO -> weed.installerdev01.root.log.INFO.20241029-090343.1
+    │   ├── weed.installerdev01.root.log.INFO.20241029-090343.1
+    │   ├── weed.installerdev01.root.log.WARNING.20241029-090343.1
+    │   └── weed.WARNING -> weed.installerdev01.root.log.WARNING.20241029-090343.1
     ├── master
-    │   ├── weed.INFO -> weed.installerdev01.root.log.INFO.20240815-093904.1
-    │   └── weed.installerdev01.root.log.INFO.20240815-093904.1
+    │   ├── weed.INFO -> weed.installerdev01.root.log.INFO.20241029-090321.1
+    │   └── weed.installerdev01.root.log.INFO.20241029-090321.1
     ├── s3
-    │   ├── weed.INFO -> weed.installerdev01.root.log.INFO.20240815-093906.1
-    │   └── weed.installerdev01.root.log.INFO.20240815-093906.1
+    │   ├── weed.INFO -> weed.installerdev01.root.log.INFO.20241029-090323.1
+    │   ├── weed.installerdev01.root.log.INFO.20241029-090323.1
+    │   ├── weed.installerdev01.root.log.WARNING.20241029-090344.1
+    │   └── weed.WARNING -> weed.installerdev01.root.log.WARNING.20241029-090344.1
     └── volume
-        ├── weed.INFO -> weed.installerdev01.root.log.INFO.20240815-093905.1
-        └── weed.installerdev01.root.log.INFO.20240815-093905.1
+        ├── weed.INFO -> weed.installerdev01.root.log.INFO.20241029-090322.1
+        └── weed.installerdev01.root.log.INFO.20241029-090322.1
+
+13 directories, 21 files
 ```
 
-* s3 配置config.json
+* s3 静态认证配置文件config.json
 ```json
 {
     "identities": [
@@ -526,7 +530,7 @@ max_file_name_length = 512
 
 [redis2_sentinel]
 enabled = true
-addresses = ["10.119.108.52:26379","10.119.108.51:26379","10.119.108.53:26379"]
+addresses = ["10.119.108.51:26379","10.119.108.52:26379","10.119.108.53:26379"]
 masterName = "sentinel_master"
 username = ""
 password = "123456"
@@ -615,42 +619,57 @@ cert = ""
 key = ""
 ca = ""
 ```
+```bash
+如果需要浏览器上传文件的功能,修改security.toml相关配置如下
+------
+[access]
+ui = true
+
+[jwt.filer_signing]
+key = ""
+expires_after_seconds = 120
+
+[jwt.filer_signing.read]
+key = ""
+expires_after_seconds = 120
+------
+```
+
 * mater service file
 ```bash
 [Unit]
-[Unit]
 Description=Seaweedfs Master Container
-Requires=docker.service
+Wants=docker.service
 After=docker.service
 
 [Service]
 Restart=always
-ExecStartPre=-/bin/docker stop weed-tst-master
-ExecStartPre=-/bin/docker rm -f weed-tst-master
+ExecStartPre=-/bin/docker stop sea-master
+ExecStartPre=-/bin/docker rm -f sea-master
 ExecStart=/bin/docker run \
     --rm \
     --net=host \
-    -l app=weed-tst \
+    -l app=sea \
     -l component=seaweedfs \
-    -v /data/server/weed-tst/data/master:/data/seaweedfs/master \
-    -v /data/server/weed-tst/data/conf:/etc/seaweedfs \
-    -v /data/server/weed-tst/data/cert:/data/cert \
-    -v /data/server/weed-tst/log/master:/data/seaweedfs/log \
-    --name weed-tst-master \
+    -v /data/server/sea/data/master:/data/seaweedfs/master \
+    -v /data/server/sea/data/conf:/etc/seaweedfs \
+    -v /data/server/sea/data/cert:/data/cert \
+    -v /data/server/sea/log/master:/data/seaweedfs/log \
+    --name sea-master \
     registry-public.lenovo.com/earth_system/seaweedfs:3.71 \
     -logdir=/data/seaweedfs/log \
     master \
     -mdir=/data/seaweedfs/master \
-    -volumeSizeLimitMB=10000 \
-    -ip=10.119.108.52 \
-    -port=10000 \
-    -port.grpc=20000 \
+    -volumeSizeLimitMB=30000 \
+    -ip=10.119.108.51 \
+    -port=7200 \
+    -port.grpc=17200 \
     -disableHttp \
-    -peers=10.119.108.51:10000,10.119.108.52:10000,10.119.108.53:10000 \
+    -peers=10.119.108.51:7200,10.119.108.52:7200,10.119.108.53:7200 \
     -defaultReplication=001
 
-ExecStop=/bin/docker stop weed-tst-master
-ExecStopPost=/bin/docker rm -f weed-tst-master
+ExecStop=/bin/docker stop sea-master
+ExecStopPost=/bin/docker rm -f sea-master
 
 [Install]
 WantedBy=multi-user.target
@@ -659,107 +678,105 @@ WantedBy=multi-user.target
 ```bash
 [Unit]
 Description=Seaweedfs Volume Container
-Requires=docker.service
+Wants=docker.service
 After=docker.service
 
 [Service]
 Restart=always
-ExecStartPre=-/bin/docker stop weed-tst-volume
-ExecStartPre=-/bin/docker rm -f weed-tst-volume
+ExecStartPre=-/bin/docker stop sea-volume
+ExecStartPre=-/bin/docker rm -f sea-volume
 ExecStart=/bin/docker run \
     --rm \
     --net=host \
-    -l app=weed-tst \
+    -l app=sea \
     -l component=seaweedfs \
-    -v /data/server/weed-tst/data/volume:/data/seaweedfs/volume \
-    -v /data/server/weed-tst/data/conf:/etc/seaweedfs \
-    -v /data/server/weed-tst/data/cert:/data/cert \
-    -v /data/server/weed-tst/log/volume:/data/seaweedfs/log \
-    --name weed-tst-volume \
+    -v /data/server/sea/data/conf:/etc/seaweedfs \
+    -v /data/server/sea/data/cert:/data/cert \
+    -v /data/server/sea/log/volume:/data/seaweedfs/log \
+    -v /data/server/sea/data/volume:/data/volume-1 \
+    --name sea-volume \
     registry-public.lenovo.com/earth_system/seaweedfs:3.71 \
     -logdir=/data/seaweedfs/log \
     volume \
-    -dir=/data/seaweedfs/volume \
-    -max=50 \
-    -ip=10.119.108.52 \
-    -port=10001 \
-    -port.grpc=20001 \
-    -mserver=10.119.108.51:10000,10.119.108.52:10000,10.119.108.53:10000 \
+    -dir=/data/volume-1 \
+    -max=8 \
+    -ip=10.119.108.51 \
+    -port=7201 \
+    -port.grpc=17201 \
+    -mserver=10.119.108.51:7200,10.119.108.52:7200,10.119.108.53:7200
 
-ExecStop=/bin/docker stop weed-tst-volume
-ExecStopPost=/bin/docker rm -f weed-tst-volume
+ExecStop=/bin/docker stop sea-volume
+ExecStopPost=/bin/docker rm -f sea-volume
 
 [Install]
 WantedBy=multi-user.target
 ```
 * filer service file
-1. 这里注意-ip使用默认值10.119.108.52,-ip.bind=0.0.0.0因为需要通过vip访问
 ```bash
 [Unit]
-[Unit]
 Description=Seaweedfs Filer Container
-Requires=docker.service
+Wants=docker.service
 After=docker.service
 
 [Service]
 Restart=always
-ExecStartPre=-/bin/docker stop weed-tst-filer
-ExecStartPre=-/bin/docker rm -f weed-tst-filer
+ExecStartPre=-/bin/docker stop sea-filer
+ExecStartPre=-/bin/docker rm -f sea-filer
 ExecStart=/bin/docker run \
     --rm \
     --net=host \
-    -l app=weed-tst \
+    -l app=sea \
     -l component=seaweedfs \
-    -v /data/server/weed-tst/data/conf:/etc/seaweedfs \
-    -v /data/server/weed-tst/data/cert:/data/cert \
-    -v /data/server/weed-tst/log/filer:/data/seaweedfs/log \
-    --name weed-tst-filer \
+    -v /data/server/sea/data/conf:/etc/seaweedfs \
+    -v /data/server/sea/data/cert:/data/cert \
+    -v /data/server/sea/data/filerldb2:/data/filerldb2 \
+    -v /data/server/sea/log/filer:/data/seaweedfs/log \
+    --name sea-filer \
     registry-public.lenovo.com/earth_system/seaweedfs:3.71 \
     -logdir=/data/seaweedfs/log \
     filer \
     -ip.bind=0.0.0.0 \
-    -port=10002 \
-    -port.grpc=20002 \
-    -master=10.119.108.51:10000,10.119.108.52:10000,10.119.108.53:10000 \
+    -port=7202 \
+    -port.grpc=17202 \
+    -master=10.119.108.51:7200,10.119.108.52:7200,10.119.108.53:7200
 
-ExecStop=/bin/docker stop weed-tst-filer
-ExecStopPost=/bin/docker rm -f weed-tst-filer
+ExecStop=/bin/docker stop sea-filer
+ExecStopPost=/bin/docker rm -f sea-filer
 
 [Install]
 WantedBy=multi-user.target
 ```
 * s3 service file
-1. s3 -ip.bind=0.0.0.0 同filer
+1. s3 -ip.bind=0.0.0.0,s3多节点会配置同各国vip访问
 ```bash
 [Unit]
 Description=Seaweedfs S3 Container
-Requires=docker.service
+Wants=docker.service
 After=docker.service
 
 [Service]
 Restart=always
-ExecStartPre=-/bin/docker stop weed-tst-s3
-ExecStartPre=-/bin/docker rm -f weed-tst-s3
+ExecStartPre=-/bin/docker stop sea-s3
+ExecStartPre=-/bin/docker rm -f sea-s3
 ExecStart=/bin/docker run \
     --rm \
     --net=host \
-    -l app=weed-tst \
+    -l app=sea \
     -l component=seaweedfs \
-    -v /data/server/weed-tst/data/conf:/etc/seaweedfs \
-    -v /data/server/weed-tst/data/cert:/data/cert \
-    -v /data/server/weed-tst/log/s3:/data/seaweedfs/log \
-    --name weed-tst-s3 \
+    -v /data/server/sea/data/conf:/etc/seaweedfs \
+    -v /data/server/sea/data/cert:/data/cert \
+    -v /data/server/sea/log/s3:/data/seaweedfs/log \
+    --name sea-s3 \
     registry-public.lenovo.com/earth_system/seaweedfs:3.71 \
     -logdir=/data/seaweedfs/log \
     s3 \
-    -port=10003 \
-    -port.grpc=20003 \
-    -filer=localhost:10002 \
-    -config=/etc/seaweedfs/config.json \
+    -port=7203 \
+    -port.grpc=17203 \
+    -filer=localhost:7202 \
     -ip.bind=0.0.0.0
 
-ExecStop=/bin/docker stop weed-tst-filer
-ExecStopPost=/bin/docker rm -f weed-tst-filer
+ExecStop=/bin/docker stop sea-filer
+ExecStopPost=/bin/docker rm -f sea-filer
 
 [Install]
 WantedBy=multi-user.target
@@ -772,4 +789,16 @@ ca = "/data/cert/ca.crt"
 [grpc.client]
 cert = "/data/cert/server.crt"
 key = "/data/cert/server.key
+```
+
+* 动态创建s3用户
+
+s3服务启动时如果-config指定了静态认证文件,将无法使用动态配置功能,动态和静态的方式只能使用一种
+
+动态的认证配,s3服务会将配置发送到filer,存储到filer使用的db中
+
+```bash
+# weed shell 也需要在主机配置security.toml
+weed shell -master localhost:7200 -filer localhost:7202
+s3.configure -access_key=any -secret_key=any -buckets=bucket1 -user=me -actions=Read,Write,List,Tagging,Admin -apply
 ```
