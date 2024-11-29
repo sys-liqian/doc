@@ -104,6 +104,9 @@ menuentry 'Install Rocky Linux 8.8' --class fedora --class gnu-linux --class gnu
 # 拷贝所有镜像文件到ftp
 mkdir -p /var/ftp/rocky8
 cp -rf /mnt/rocky8/* /var/ftp/rocky8
+cp -r /var/ftp/rocky8/BaseOS/Packages /var/ftp/rocky8
+cp -r /var/ftp/rocky8/BaseOS/repodata /var/ftp/rocky8
+
 ```
 
 创建kickstart文件到ftp
