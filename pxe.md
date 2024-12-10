@@ -12,11 +12,12 @@
 
 ```bash
 systemctl stop firewalld
+# 注意无法获取ftp文件，需要关闭SELinux
 setenforce 0
 
 # 挂载镜像
 mkdir /mnt/rocky8
-mount -o loop /root/Rocky-8.8-x86_64-minimal.iso /mnt/rocky8/
+mount -o loop /root/Rocky-8.10-x86_64-dvd1.iso /mnt/rocky8/
 
 # 安装软件
 yum install -y tftp-server dhcp-server vsftpd
@@ -94,19 +95,21 @@ cp /mnt/rocky8/isolinux/initrd.img /var/lib/tftpboot/
 cp /mnt/rocky8/isolinux/vmlinuz /var/lib/tftpboot/
 cp -r  /mnt/rocky8/EFI/BOOT/* /var/lib/tftpboot/
 chmod +w /var/lib/tftpboot/grub.cfg
+# 需要有读写权限，重新拷贝文件后需要重新赋权
+chmod -R 755 /var/lib/tftpboot
 
-# 修改文件 Install Rocky Linux 8.8 部分如下
-menuentry 'Install Rocky Linux 8.8' --class fedora --class gnu-linux --class gnu --class os {
-        linuxefi vmlinuz inst.repo=ftp://192.168.1.100/rocky8 inst.ks=ftp://192.168.1.100/rocky8/rocky8.cfg  quiet
+# 修改文件 Install Rocky Linux 8.8 部分如下,// TODO inst.stage2和inst.repo区别
+menuentry 'Install Rocky Linux 8.10' --class fedora --class gnu-linux --class gnu --class os {
+        linuxefi vmlinuz inst.stage2=ftp://192.168.1.100/rocky8 inst.ks=ftp://192.168.1.100/rocky8/rocky8.cfg quiet
         initrdefi initrd.img
 }
 
 # 拷贝所有镜像文件到ftp
 mkdir -p /var/ftp/rocky8
-cp -rf /mnt/rocky8/* /var/ftp/rocky8
-cp -r /var/ftp/rocky8/BaseOS/Packages /var/ftp/rocky8
-cp -r /var/ftp/rocky8/BaseOS/repodata /var/ftp/rocky8
-
+# 注意隐藏文件.treeinfo
+cp -rf /mnt/rocky8/.* /var/ftp/rocky8
+# 设置文件权限
+chmod -R 755 /var/ftp/rocky8
 ```
 
 创建kickstart文件到ftp
@@ -114,16 +117,19 @@ cp -r /var/ftp/rocky8/BaseOS/repodata /var/ftp/rocky8
 ```bash
 # 生成密码
 openssl passwd -1 "123456"
-# $1$NAAAcDvm$9aYMh4fRsFKjr1jPsjWXH.
+# $1$qwDusr1A$l0nteRMZCkRAyJOtMcms..
 
 cat <<EOF >/var/ftp/rocky8/rocky8.cfg
+# 全新安装或是升级
 install
 
 # 键盘设置
-keyboard 'us'
+keyboard --xlayouts="us"
 
 # root密码
-rootpw --iscrypted $1$NAAAcDvm$9aYMh4fRsFKjr1jPsjWXH.
+rootpw --iscrypted $1$qwDusr1A$l0nteRMZCkRAyJOtMcms..
+#采用明文记录
+#rootpw --plaintext 123456
 
 # 系统语言
 lang en_US
@@ -149,12 +155,14 @@ firewall --disabled
 
 # 网络配置,这里的device名称好像也可以成功
 network  --bootproto=dhcp --device=eth0 --onboot=yes
+# 设置主机名
+network  --hostname=dev
 
 # 安装完之后重启
 reboot
 
-# 网络源,根据自己实际情况填
-url --url="ftp://192.168.1.100/rocky8/local.repo"
+# 网络软件源,指向ftp,根据ftp中.treeinfo文件获取软件包位置
+url --url="ftp://192.168.1.100/rocky8"
 
 # 系统引导加载配置
 bootloader --location=mbr
@@ -165,18 +173,20 @@ clearpart --all --initlabel
 
 # 磁盘分区,默认单位是M,--grow --size=1代表剩余的都分给它
 part /boot --fstype="xfs" --size=1024
-part swap --fstype="swap" --size=4096
+part /boot/efi --fstype="vfat" --size=600
+part swap --fstype="swap" --size=2048
 part / --fstype="xfs" --grow --size=1
 
-# 安装软件包和相关组
-%packages
+# 安装软件包和相关组，支持传递参数，--ignoremissing:忽略所有在这个安装源中缺少的软件包、组及环境
+%packages --ignoremissing
 @^minimal-environment
+authselect-compat
 bash-completion
 net-tools
 vim
 %end
 
-# 安装完毕运行的命令
+# 安装完毕运行的命令，这里写的是更新安装源
 %post --interpreter=/bin/bash
 echo "hellp pxe" > /root/hello_pxe.txt
 %end
