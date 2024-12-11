@@ -274,6 +274,8 @@ docker run -d --cap-add=NET_ADMIN \
   --enable-tftp --tftp-root=/var/lib/tftpboot \
   --dhcp-match=set:efibc,option:client-arch,7 \
   --dhcp-boot=tag:efibc,grubx64.efi \
+  --dhcp-match=set:bios,option:client-arch,0 \
+  --dhcp-boot=tag:bios,pxelinux.0 \
   --port=0 \
   --log-queries \
   --log-dhcp
