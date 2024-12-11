@@ -7,7 +7,7 @@
 * 虚拟机 HyperV
 * Gateway 192.168.1.1 掩码 255.255.255.0
 
-## 
+## EFI引导
 
 
 ```bash
@@ -107,7 +107,9 @@ menuentry 'Install Rocky Linux 8.10' --class fedora --class gnu-linux --class gn
 # 拷贝所有镜像文件到ftp
 mkdir -p /var/ftp/rocky8
 # 注意隐藏文件.treeinfo
-cp -rf /mnt/rocky8/.* /var/ftp/rocky8
+cp -rf /mnt/rocky8/* /var/ftp/rocky8
+cp /mnt/rocky8/.treeinfo /var/ftp/rocky8/
+cp /mnt/rocky8/.discinfo /var/ftp/rocky8/
 # 设置文件权限
 chmod -R 755 /var/ftp/rocky8
 ```
@@ -191,4 +193,144 @@ vim
 echo "hellp pxe" > /root/hello_pxe.txt
 %end
 EOF
+```
+
+## 容器PXE server
+
+```bash
+# PXE server ip 192.168.1.101
+setenforce 0
+
+docker pull quay.io/poseidon/dnsmasq:v0.5.0-38-ga731ddd
+docker pull sigoden/dufs:latest
+
+mkdir -p /data/{dufs,tftp}
+mount -o loop /root/Rocky-8.10-x86_64-dvd1.iso /mnt/rocky8/
+
+# tftp数据
+cp /mnt/rocky8/isolinux/initrd.img /data/tftp
+cp /mnt/rocky8/isolinux/vmlinuz /data/tftp
+cp -r  /mnt/rocky8/EFI/BOOT/* /data/tftp
+chmod +w /data/tftp/grub.cfg
+chmod -R 755 /data/tftp
+
+# ftp数据
+cp -rf /mnt/rocky8/* /data/dufs
+cp /mnt/rocky8/.treeinfo /data/dufs
+cp /mnt/rocky8/.discinfo /data/dufs
+
+cat <<EOF >/data/dufs/rocky8.cfg
+install
+keyboard --xlayouts="us"
+rootpw --plaintext 123456
+lang en_US
+timezone Asia/Shanghai
+auth  --useshadow  --passalgo=sha512
+text
+firstboot --disable
+selinux --disabled
+firewall --disabled
+network  --bootproto=dhcp --device=eth0 --onboot=yes
+network  --hostname=dev
+reboot
+url --url="http://192.168.1.101:5000"
+bootloader --location=mbr
+zerombr
+clearpart --all --initlabel
+part /boot --fstype="xfs" --size=1024
+part /boot/efi --fstype="vfat" --size=600
+part swap --fstype="swap" --size=2048
+part / --fstype="xfs" --grow --size=1
+
+%packages --ignoremissing
+@^minimal-environment
+authselect-compat
+bash-completion
+net-tools
+vim
+%end
+
+%post --interpreter=/bin/bash
+%end
+EOF
+
+chmod -R 755 /data/dufs
+
+
+# 修改文件tftp grub.cfg 
+menuentry 'Install Rocky Linux 8.10' --class fedora --class gnu-linux --class gnu --class os {
+        linuxefi vmlinuz inst.stage2=http://192.168.1.101:5000 inst.ks=http://192.168.1.101:5000/rocky8.cfg quiet
+        initrdefi initrd.img
+
+# 启动dufs
+docker run -v /data/dufs:/data -p 5000:5000 -d dufs:latest /data -A
+# 启动dnsmasq
+docker run -d --cap-add=NET_ADMIN \
+  --net=host \
+  -v /data/tftp:/var/lib/tftpboot \
+  dnsmasq:latest \
+  -d -q \
+  --dhcp-range=192.168.1.120,192.168.1.130 \
+  --enable-tftp --tftp-root=/var/lib/tftpboot \
+  --dhcp-match=set:efibc,option:client-arch,7 \
+  --dhcp-boot=tag:efibc,grubx64.efi \
+  --port=0 \
+  --log-queries \
+  --log-dhcp
+```
+
+
+## Legacy引导,测试未通过
+
+```bash
+# 关闭SELinux
+setenforce 0
+
+# 安装syslinux
+yum -y install syslinux
+
+# 清空tftp
+rm -rf /var/lib/tftpboot/*
+
+# 清空ftp
+rm -rf /var/ftp/rocky8/*
+
+# 拷贝syslinux
+cp /usr/share/syslinux/pxelinux.0 /var/lib/tftpboot/
+
+# 拷贝内核，启动文件等
+cp /mnt/rocky8/isolinux/* /var/lib/tftpboot/
+mkdir /var/lib/tftpboot/pxelinux.cfg
+cp /var/lib/tftpboot/isolinux.cfg /var/lib/tftpboot/pxelinux.cfg/default
+
+# 修改权限
+chmod -R 755 /var/lib/tftpboot
+
+# 修改pxelinux.cfg/default文件 label linux 内容如下
+label linux
+  menu label ^Install Rocky Linux 8.10
+  kernel vmlinuz
+  append initrd=initrd.img inst.stage2=ftp://192.168.1.100/rocky8 inst.ks=ftp://192.168.1.100/rocky8/rocky8.cfg quiet
+
+# 拷贝镜像文件到ftp
+cp -rf /mnt/rocky8/* /var/ftp/rocky8
+cp /mnt/rocky8/.treeinfo /var/ftp/rocky8/
+cp /mnt/rocky8/.discinfo /var/ftp/rocky8/
+# 设置文件权限
+chmod -R 755 /var/ftp/rocky8
+
+# 修改dhcp.conf如下
+cat <<EOF >/etc/dhcp/dhcpd.conf
+subnet 192.168.1.0 netmask 255.255.255.0 {
+  range 192.168.1.120 192.168.1.130;
+  option routers 192.168.1.1;
+  next-server 192.168.1.100;
+  filename "pxelinux.0";
+}
+EOF
+
+# 重启dhcp
+systemctl restart dhcpd
+
+# 创建 kickstart文件到 /var/ftp/rocky8/rocky8.cfg，和EFI引导使用文件一致
 ```
