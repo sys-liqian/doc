@@ -336,3 +336,129 @@ systemctl restart dhcpd
 
 # 创建 kickstart文件到 /var/ftp/rocky8/rocky8.cfg，和EFI引导使用文件一致
 ```
+
+## Ubuntu pxe
+
+* Ubuntu pxe cloud init 使用内存较多,至少8g,要保证Subiquity服务启动成功
+
+```bash
+# 在ubuntu下载引导文件，在ubuntu22.04下载，可能不支持24.04
+apt-get download shim.signed
+apt-get download grub-efi-amd64-signed
+mkdir shim-signed
+mkdir grub-efi-amd64-signed
+dpkg -x shim-signed_1.40.10+15.8-0ubuntu1_amd64.deb shim-signed
+dpkg -x grub-efi-amd64-signed_1.187.9~20.04.1+2.06-2ubuntu14.6_amd64.deb grub-efi-amd64-signed
+# 挂载镜像
+mount -o loop /data/ubuntu-22.04.5-live-server-amd64.iso /mnt/ubuntu
+# 拷贝引导文件到tftp,并且重命名
+cp ./shim-signed/user/lib/shim/shimx64.efi.signed.latest /var/lib/tftpboot/bootx64.efi
+cp ./grub-efi-amd64-signed/usr/lib/grub/x86_64-efi-signed/grubnetx64.efi.signed /var/lib/tftpboot/grubx64.efi
+cp /mnt/ubuntu/casper/vmlinuz /var/lib/tftpboot/
+cp /mnt/ubuntu/casper/initrd /var/lib/tftpboot/
+# 注意目录结构
+mkdir /var/lib/tftpboot/grub
+cp /mnt/ubuntu/boot/grub/grub.cfg /var/lib/tftpboot/grub/
+cp /mnt/ubuntu/boot/grub/fonts/unicode.pf2 /var/lib/tftpboot/
+chmod -R 755 /var/lib/tftpboot
+
+# 修改引导菜单
+
+# 配置文件服务,使用http,ftp都可以
+mkdir -p /var/ftp/ubuntu/{autoinstall,iso}
+cp /data/ubuntu-22.04.5-live-server-amd64.iso /var/ftp/ubuntu/iso
+# 创建文件,cloud init 格式要求
+touch /var/ftp/ubuntu/autoinstall/user-data
+touch /var/ftp/ubuntu/autoinstall/meta-data
+touch /var/ftp/ubuntu/autoinstall/vendor-data
+
+# 生成密码 123456
+python3 -c 'import crypt; print(crypt.crypt("123456", crypt.mksalt(crypt.METHOD_SHA512)))'
+
+```
+
+修改 /var/lib/tftpboot/grup/grub.cfg如下:
+```
+set timeout=30
+set pager=1
+
+loadfont unicode
+
+set menu_color_normal=white/black
+set menu_color_highlight=black/light-gray
+
+menuentry "Try or Install Ubuntu Server" {
+        set gfxpayload=keep
+        linux   vmlinuz ip=dhcp url=ftp://192.168.1.100/ubuntu/iso/ubuntu-22.04.5-live-server-amd64.iso autoinstall ds=nocloud-net\;s=ftp://192.168.1.100/ubuntu/autoinstall/
+        initrd  initrd
+}
+grub_platform
+if [ "$grub_platform" = "efi" ]; then
+menuentry 'Boot from next volume' {
+        exit 1
+}
+menuentry 'UEFI Firmware Settings' {
+        fwsetup
+}
+else
+menuentry 'Test memory' {
+        linux16 /boot/memtest86+x64.bin
+}
+fi
+```
+
+修改/var/ftp/ubuntu/autoinstall/user-data如下
+```yaml
+#cloud-config
+autoinstall:
+  apt:
+    geoip: true
+    preserve_sources_list: false
+    primary:
+    - arches: [amd64, i386]
+      uri: http://in.archive.ubuntu.com/ubuntu
+    - arches: [default]
+      uri: http://ports.ubuntu.com/ubuntu-ports
+  identity: {hostname: ubuntu-server, password: $6$j0PHK3qwmxGKhA4W$b5YBMQGlEsIE/QBGrkCWRqs4I7fJn1C9PbbKe51RcDm6iXEVinR/uNt4L7Vb3EvsfJN7c87pNNAEtpuhTCJ9C1,
+    realname: Deepak, username: deepak}
+  keyboard: {layout: us, toggle: null, variant: ''}
+  locale: en_US.UTF-8
+  network:
+    ethernets:
+      eth0:
+        critical: true
+        dhcp-identifier: mac
+        dhcp4: true
+    version: 2
+  updates: security
+  version: 1
+```
+
+tftp 目录结构
+```
+[root@master tftpboot]# tree
+.
+├── bootx64.efi
+├── grub
+│   └── grub.cfg
+├── grubx64.efi
+├── initrd
+├── mmx64.efi
+├── unicode.pf2
+└── vmlinuz
+
+1 directory, 7 files
+```
+
+htt文件服务器 目录结构
+```
+[root@master ftp]# tree ubuntu/
+ubuntu/
+├── autoinstall
+│   ├── meta-data
+│   └── user-data
+└── iso
+    └── ubuntu-22.04.5-live-server-amd64.iso
+
+2 directories, 3 files
+```
