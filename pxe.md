@@ -432,6 +432,12 @@ autoinstall:
     version: 2
   updates: security
   version: 1
+  packages:
+  - openssh-server
+  ssh_pwauth: true
+  runcmd:
+  - systemctl enable ssh
+  - systemctl start ssh
 ```
 
 tftp 目录结构
