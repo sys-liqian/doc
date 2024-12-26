@@ -76,7 +76,7 @@ export CDI_PROXY=`kubectl -n cdi get svc -l cdi.kubevirt.io=cdi-uploadproxy -o g
 virtctl image-upload --image-path='/home/jupiter/workspace/kubevirt/Rocky-8-GenericCloud-Base.latest.x86_64.qcow2' --pvc-name=iso-rocky8  --pvc-size=15G --uploadproxy-url=https://$CDI_PROXY  --insecure  --wait-secs=240
 ```
 
-vm.yaml
+container-vm.yaml
 ```yaml
 apiVersion: kubevirt.io/v1
 kind: VirtualMachine
@@ -120,3 +120,82 @@ spec:
           cloudInitNoCloud:
             userDataBase64: SGkuXG4=
 ```
+
+rocky8-pvc-vm.yaml
+```yaml
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: rocky8vm
+  namespace: default
+spec:
+  runStrategy: Halted
+  template:
+    metadata:
+      labels:
+        kubevirt.io/domain: rocky8vm
+    spec:
+      domain:
+        cpu:
+          cores: 1
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: cdromiso
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          interfaces:
+          - masquerade: {}
+            model: e1000
+            name: default
+        machine:
+          type: q35
+        resources:
+          requests:
+            memory: 2Gi
+      networks:
+      - name: default
+        pod: {}
+      volumes:
+      - name: cdromiso
+        persistentVolumeClaim:
+          claimName: iso-rocky8
+      - cloudInitNoCloud:
+          networkData: |-
+            network:
+              version: 1
+              config:
+                - type: physical
+                  name: eth0
+                  subnets:
+                    - type: dhcp
+          userData: |-
+            #cloud-config
+            disable_root: false
+            ssh_pwauth: true
+            users:
+              - default
+              - name: root
+                lock_passwd: false
+                hashed_passwd: $1$4t.w.u.X$BkdPjEOi30r85GpIaTZ8C1  # 密码:12345678
+        name: cloudinitdisk
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rocky8vm
+  namespace: default
+spec:
+  selector:
+    kubevirt.io/domain: rocky8vm
+  ports:
+    - protocol: TCP
+      port: 22      
+      targetPort: 22   
+      nodePort: 30001
+  type: NodePort
+```
+
