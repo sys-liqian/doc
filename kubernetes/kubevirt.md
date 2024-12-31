@@ -199,3 +199,37 @@ spec:
   type: NodePort
 ```
 
+## Multus CNI
+
+```bash
+git clone https://github.com/k8snetworkplumbingwg/multus-cni.git && cd multus-cni/deployments
+kubectl apply -f multus-daemonset-thick-plugin.yml
+# /etc/cni/net.d 生成 00-multus.conf
+# /opt/cni/bin 生成 multus-shim
+
+cat <<EOF | kubectl create -f -
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: macvlan-conf
+spec:
+  config: '{
+      "cniVersion": "0.3.0",
+      "type": "macvlan",
+      "master": "eth0",
+      "mode": "bridge",
+      "ipam": {
+        "type": "host-local",
+        "subnet": "192.168.1.0/24",
+        "rangeStart": "192.168.1.200",
+        "rangeEnd": "192.168.1.216",
+        "routes": [
+          { "dst": "0.0.0.0/0" }
+        ],
+        "gateway": "192.168.1.1"
+      }
+    }'
+EOF
+kubectl get network-attachment-definitions
+
+```
