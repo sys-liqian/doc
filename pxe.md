@@ -468,3 +468,272 @@ ubuntu/
 
 2 directories, 3 files
 ```
+
+## 使用Ubuntu作为Live System灌装
+
+制作qemu-utils deb包
+```bash
+cd cd /var/cache/apt/archives/
+# 当前为中文系统，所以grep 中文
+sudo apt-get install --reinstall -d `apt-cache depends qemu-img | grep "依赖" | cut -d: -f2 |tr -d "<>"`
+sudo apt-get download qemu-img
+mkdir qemu-utils
+mv ./*.deb qemu-utils
+tar -czvf qemu-utils.tar.gz qemu-utils
+```
+
+目录结构
+```
+[root@dnsmasq data]# tree pxeboot/
+pxeboot/
+├── base
+│   ├── image
+│   │   ├── Rocky-8-GenericCloud.latest.x86_64.qcow2
+│   │   └── ubuntu-22.04-server-cloudimg-amd64.img
+│   ├── script
+│   │   ├── filling.sh.temp
+│   │   ├── host1.sh
+│   │   ├── host2.sh
+│   └── tools
+│       ├── pxe-agent-x86_64
+│       └── qemu-utils-x86_64.tar.gz
+├── grub
+│   └── grub.cfg
+├── grubx64.efi
+├── initrd
+├── os
+│   └── x86_64
+│       ├── autoinstall
+│       │   ├── meta-data
+│       │   ├── user-data
+│       │   └── vendor-data
+│       └── iso
+│           └── ubuntu-22.04.5-live-server-amd64.iso
+├── unicode.pf2
+└── vmlinu
+```
+
+filling.sh.temp
+```bash
+#!/bin/bash
+# 由程序动态渲染，为每台裸金属生成自己的灌装脚本
+file_server_addr={{ .FileServerAddr }}
+image_name={{ .ImageName }}
+arch=$(arch)
+clean_disk={{ .CleanDisk }}
+clean_boot_item={{ .CleanBootItem }}
+target_disk_name={{ .TargetDiskName }}
+
+boot_label={{ .BootLabel }}
+boot_part_number={{ .BootPartNumber }}
+root_part_number={{ .RootPartNumber }}
+boot_loader={{ .BootLoader }}
+
+
+echo "make work dir /qemu-utils /image"
+mkdir /qemu-utils
+mkdir /image
+
+echo "download qemu-utils and image file."
+wget -O /tmp/qemu-utils.tar.gz "$file_server_addr/base/tools/qemu-utils-$arch.tar.gz" &>/dev/null
+wget -O /image/target.img "$file_server_addr/base/image/$image_name" &>/dev/null
+
+echo "unzip qemu-utils."
+cd /qemu-utils
+tar -zxvf /tmp/qemu-utils.tar.gz &>/dev/null
+
+echo "install qemu-utils."
+dpkg -i /qemu-utils/qemu-utils/*.deb &>/dev/null
+
+
+#  清理磁盘
+if [ "$clean_disk" = true ]; then
+    echo "clean disk $target_disk_name ......"
+    parted /dev/$target_disk_name -s -- mklabel msdos
+    dd if=/dev/zero of=/dev/$target_disk_name bs=512
+    wipefs -a /dev/$target_disk_name
+    echo "disk $target_disk_name cleaned successfully."
+else
+    echo "disk cleaning skipped."
+fi
+
+# 灌装
+echo "convert image to /dev/$target_disk_name"
+qemu-img convert -p -O raw /image/target.img /dev/$target_disk_name
+
+lsblk
+
+sleep 10
+
+# 挂载 / 分区
+echo "mount root part /dev/$target_disk_name$root_part_number to /mnt"
+mount /dev/$target_disk_name$root_part_number /mnt
+
+
+# 执行自定义脚本
+echo "start execute custom script."
+
+{{ .CustomizeShell }}
+
+echo "end of execute custom script."
+
+echo "umount /mnt"
+umount /mnt
+
+# 清理boot item
+if [ "$clean_boot_item" = true ]; then
+  echo "clean old boot items"
+  efibootmgr -v
+  boot_entries=$(efibootmgr -v | grep '.efi' | awk '{print $1}')
+  for entry in "${boot_entries[@]}"; do
+    tmp="${entry#Boot}"
+    flag="${tmp::-1}"
+    echo "delete boot entry: $flag"
+    sleep 1
+    efibootmgr -b "$flag" -B
+    if [ $? -ne 0 ]; then
+      echo "error deleting boot entry: $entry"
+    else
+      echo "successfully deleted boot entry: $entry"
+    fi
+  done
+fi
+
+# 需要提前获取qcow2 的root分区和 efi 分区编号
+efibootmgr -c -d /dev/$target_disk_name -p $boot_part_number -L "$boot_label" -l "$boot_loader"
+efibootmgr -v 
+sleep 10
+
+echo "reboot"
+reboot
+```
+
+
+
+host1.sh (由程序渲染所得)
+
+```bash
+#!/bin/bash
+file_server_addr=http://192.168.1.101:5000
+image_name=Rocky-8-GenericCloud.latest.x86_64.qcow2
+arch=$(arch)
+clean_disk=true
+clean_boot_item=true
+target_disk_name=sda
+
+boot_label=rocky
+boot_part_number=1
+root_part_number=5
+boot_loader=/EFI/rocky/shimx64.efi
+
+
+echo "make work dir /qemu-utils /image"
+mkdir /qemu-utils
+mkdir /image
+
+echo "download qemu-utils and image file."
+wget -O /tmp/qemu-utils.tar.gz "$file_server_addr/base/tools/qemu-utils-$arch.tar.gz" &>/dev/null
+wget -O /image/target.img "$file_server_addr/base/image/$image_name" &>/dev/null
+
+echo "unzip qemu-utils."
+cd /qemu-utils
+tar -zxvf /tmp/qemu-utils.tar.gz &>/dev/null
+
+echo "install qemu-utils."
+dpkg -i /qemu-utils/qemu-utils/*.deb &>/dev/null
+
+if [ "$clean_disk" = true ]; then
+    echo "clean disk $target_disk_name ......"
+    parted /dev/$target_disk_name -s -- mklabel msdos
+    dd if=/dev/zero of=/dev/$target_disk_name bs=512
+    wipefs -a /dev/$target_disk_name
+    echo "disk $target_disk_name cleaned successfully."
+else
+    echo "disk cleaning skipped."
+fi
+
+echo "convert image to /dev/$target_disk_name"
+qemu-img convert -p -O raw /image/target.img /dev/$target_disk_name
+
+lsblk
+
+sleep 10
+
+echo "mount root part /dev/$target_disk_name$root_part_number to /mnt"
+mount /dev/$target_disk_name$root_part_number /mnt
+
+echo "start execute custom script."
+
+
+
+echo "end of execute custom script."
+
+echo "umount /mnt"
+umount /mnt
+
+
+if [ "$clean_boot_item" = true ]; then
+  echo "clean old boot items"
+  efibootmgr -v
+  boot_entries=$(efibootmgr -v | grep '.efi' | awk '{print $1}')
+  for entry in "${boot_entries[@]}"; do
+    tmp="${entry#Boot}"
+    flag="${tmp::-1}"
+    echo "delete boot entry: $flag"
+    sleep 1
+    efibootmgr -b "$flag" -B
+    if [ $? -ne 0 ]; then
+      echo "error deleting boot entry: $entry"
+    else
+      echo "successfully deleted boot entry: $entry"
+    fi
+  done
+fi
+
+efibootmgr -c -d /dev/$target_disk_name -p $boot_part_number -L "$boot_label" -l "$boot_loader"
+efibootmgr -v 
+sleep 10
+
+echo "reboot"
+reboot
+```
+
+gurb.cfg
+```bash
+set timeout=300
+set pager=1
+set default=0
+
+loadfont unicode
+
+set menu_color_normal=white/black
+set menu_color_highlight=black/light-gray
+
+menuentry "Try or Install x86_64 Server" {
+        set gfxpayload=keep
+        linux   vmlinuz ip=dhcp url=http://192.168.1.101:5000/os/x86_64/iso/ubuntu-22.04.5-live-server-amd64.iso autoinstall ds=nocloud-net\;s=http://192.168.1.101:5000/os/x86_64/autoinstall/
+        initrd  initrd
+}
+
+menuentry "Try or Install aarch64 Server" {
+        set gfxpayload=keep
+        linux   vmlinuz ip=dhcp url=http://192.168.1.101:5000/os/aarch64/iso/ubuntu-22.04.5-live-server-arm64.iso autoinstall ds=nocloud-net\;s=http://192.168.1.101:5000/os/aarch64/autoinstall/
+        initrd  initrd
+}
+```
+
+user-data, pxe-agent会根据自己的唯一信息获取自己的setup.sh,如bmcip,主板序列号等
+
+```
+#cloud-config
+autoinstall:
+  early-commands:
+    - wget -O /usr/bin/pxe-agent http://192.168.1.101:5000/base/tools/pxe-agent-$(uname -m)
+    - chmod +x /usr/bin/pxe-agent
+    - pxe-agent --ip 192.168.1.101 --fakeid host1
+    - wget -O /usr/bin/setup.sh http://192.168.1.101:5000/base/script/host1.sh
+    - chmod +x /usr/bin/setup.sh
+    - /usr/bin/setup.sh
+  version: 1
+```
+
