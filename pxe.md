@@ -471,6 +471,12 @@ ubuntu/
 
 ## 使用Ubuntu作为Live System灌装
 
+修改qcow2默认密码
+
+```bash
+virt-customize -a ubuntu-20.04-server-cloudimg-amd64.img --root-password password:123456
+```
+
 制作qemu-utils deb包
 ```bash
 cd cd /var/cache/apt/archives/
@@ -737,3 +743,236 @@ autoinstall:
   version: 1
 ```
 
+## IPXE
+
+编译IPXE固件
+```bash
+yum install xz-devel git
+git clone https://github.com/ipxe/ipxe.git
+cd ipxe/src
+make bin/undionly.kpxe
+make bin-x86_64-efi/ipxe.efi
+# 复制到tftp根目录
+mv bin/undionly.kpxe /data/pxeboot/
+mv bin-x86_64-efi/ipxe.efi /data/pxeboot/
+```
+dnsmasq.sh
+
+```bash
+#!/bin/bash
+docker rm -f pxe-dnsmasq
+sleep 2
+docker run -d --cap-add=NET_ADMIN \
+  --net=host \
+  --name pxe-dnsmasq \
+  -v /data/pxeboot:/var/lib/tftpboot \
+  dnsmasq:latest \
+  -d -q \
+  --dhcp-range=192.168.1.120,192.168.1.250 \
+  --enable-tftp --tftp-root=/var/lib/tftpboot \
+  --dhcp-match=set:efi64,option:client-arch,9 \
+  --dhcp-boot=tag:efi64,ipxe.efi \
+  --dhcp-match=set:efibc,option:client-arch,7 \
+  --dhcp-boot=tag:efibc,ipxe.efi \
+  --dhcp-match=set:bios,option:client-arch,0 \
+  --dhcp-boot=tag:bios,pxelinux.0 \
+  --dhcp-boot=tag:ipxe,http://192.168.1.101:5000/boot.ipxe \
+  --port=0 \
+  --log-queries \
+  --log-dhcp
+```
+
+目录结构
+
+* centos7.9目录为CentOS-7-x86_64-DVD-2009.iso内容解压后拷贝
+* 2eb5e140-03e3-4611-ba5f-5fca34e1dfcc和ab052818-397a-4852-9588-20b997cef939为两台主机的product_uuid
+
+```
+[root@dnsmasq data]# tree pxeboot/
+pxeboot/
+├── boot
+│   ├── 2eb5e140-03e3-4611-ba5f-5fca34e1dfcc
+│   │   ├── meta-data
+│   │   ├── user-data
+│   │   └── vendor-data
+│   ├── ab052818-397a-4852-9588-20b997cef939.ks
+│   ├── uuid-2eb5e140-03e3-4611-ba5f-5fca34e1dfcc.ipxe
+│   └── uuid-ab052818-397a-4852-9588-20b997cef939.ipxe
+├── boot.ipxe
+├── boot.ipxe.cfg
+├── init
+│   ├── initrd
+│   └── vmlinuz
+├── ipxe.efi
+├── iso
+│   ├── centos7.9
+│   └── ubuntu-22.04.5-live-server-amd64.iso
+├── menu.ipxe
+└── undionly.kpxe
+```
+
+boot.ipxe
+```bash
+#!ipxe
+
+# chain boot.ipxe.cfg加载全局配置文件
+chain --autofree boot.ipxe.cfg
+
+# 通过主机的product_uuid获取 uuid-${uuid}.ipxe 文件
+# 如果获取到了就执行，没有获取到则执行下一个chain
+isset ${uuid} && chain --replace --autofree ${boot-dir}uuid-${uuid}.ipxe ||
+
+# 默认走到menu.ipxe
+chain --replace --autofree ${menu-url} ||
+```
+boot.ipxe.cfg
+```bash
+#!ipxe
+
+# http文件服务器地址
+set file-server http://192.168.1.101:5000
+# ipxe所需文件在文件服务器路径
+set file-server-root /
+# 组装ipxe服务器地址
+set boot-url ${file-server}${file-server-root}
+# 存放每台主机.ipxe配置文件所在目录
+set boot-dir boot/
+# 安装系统目录菜单
+set menu-url ${boot-url}menu.ipxe
+```
+menu.ipxe
+```bash
+#!ipxe
+
+set menu-timeout 600000
+isset ${menu-default} || set menu-default exit
+ 
+:start
+menu boot from iPXE server
+item --gap --             -------------Operating Systems----------------
+item centos-7.9       BOOT Centos 7.9
+item ubuntu-22.04     BOOT Ubuntu 22.04
+item rockylinux-8.10  BOOT RockyLinux 8.10
+item --gap --             -------------Advanced Options-----------------
+item config           Configure settings
+item shell            Drop to IPXE shell
+item reboot           Reboot computer
+item
+item exit             Exit IPXE and continue BIOS boot
+choose --default ${menu-default} --timeout ${menu-timeout} selected || goto cancel
+goto ${selected}
+ 
+:cancel
+echo You cancelled the menu, dropping you to a shell
+
+:shell
+echo Type 'exit' to get the back to the menu
+shell
+set menu-timeout 0
+set submenu-timeout 0
+goto start
+
+:reboot
+reboot
+
+:exit
+exit
+
+:config
+config
+goto start
+
+############## MAIN MENU ITEMS  #################################
+
+:ubuntu-22.04
+echo Selected Ubuntu 22.04
+initrd ${file-server}/init/initrd
+kernel ${file-server}/init/vmlinuz ip=dhcp url=${file-server}/iso/ubuntu-22.04.5-live-server-amd64.iso autoinstall ds=nocloud-net;s=${file-server}/boot/${uuid}
+boot
+
+:centos-7.9
+echo Selected Centos 7.9
+initrd ${file-server}/iso/centos7.9/isolinux/initrd.img
+kernel ${file-server}/iso/centos7.9/isolinux/vmlinuz inst.stage2=${file-server}/iso/centos7.9 ks=${file-server}/boot/${uuid}.ks quiet
+boot
+```
+boot/uuid-2eb5e140-03e3-4611-ba5f-5fca34e1dfcc.ipxe
+```bash
+#!ipxe
+# 2eb5e140-03e3-4611-ba5f-5fca34e1dfcc menu-设置为ubuntu-22.04
+set menu-default ubuntu-22.04
+chain --replace --autofree ${menu-url}
+```
+
+boot/uuid-ab052818-397a-4852-9588-20b997cef939.ipxe
+```bash
+#!ipxe
+set menu-default centos-7.9
+chain --replace --autofree ${menu-url}
+```
+boot/2eb5e140-03e3-4611-ba5f-5fca34e1dfcc/user-data
+```bash
+#cloud-config
+autoinstall:
+  apt:
+    geoip: true
+    preserve_sources_list: false
+    primary:
+    - arches: [amd64, i386]
+      uri: http://in.archive.ubuntu.com/ubuntu
+    - arches: [default]
+      uri: http://ports.ubuntu.com/ubuntu-ports
+  identity: {hostname: jupiter, password: $6$0NLe1hnjoEaCUlat$edClT7amesXSCmyv8fvyJJqRn1nDj2eqp8XO08gYVDwlRRwuuYpklqsAsIIvfKAC9n12yFB.gSNX6pCoOkev31,
+    realname: jupiter, username: jupiter}
+  keyboard: {layout: us, toggle: null, variant: ''}
+  locale: en_US.UTF-8
+  network:
+    ethernets:
+      eth0:
+        critical: true
+        dhcp-identifier: mac
+        dhcp4: true
+    version: 2
+  updates: security
+  version: 1
+  packages:
+  - openssh-server
+  ssh_pwauth: true
+runcmd:
+  - systemctl enable ssh
+  - systemctl start ssh
+```
+boot/ab052818-397a-4852-9588-20b997cef939.ks
+```bash
+install
+keyboard --xlayouts="us"
+rootpw --iscrypted $1$qwDusr1A$l0nteRMZCkRAyJOtMcms..
+#rootpw --plaintext 123456
+lang en_US
+timezone Asia/Shanghai
+auth  --useshadow  --passalgo=sha512
+text
+firstboot --disable
+selinux --disabled
+firewall --disabled
+network  --bootproto=dhcp --device=eth0 --onboot=yes
+network  --hostname=dev
+reboot
+url --url="http://192.168.1.100:5000/iso/centos7.9"
+bootloader --location=mbr
+zerombr
+clearpart --all --initlabel
+part /boot --fstype="xfs" --size=1024
+part /boot/efi --fstype="vfat" --size=600
+part swap --fstype="swap" --size=2048
+part / --fstype="xfs" --grow --size=1
+%packages --ignoremissing
+@^minimal-environment
+authselect-compat
+bash-completion
+net-tools
+vim
+%end
+%post --interpreter=/bin/bash
+%end
+```
