@@ -474,7 +474,9 @@ ubuntu/
 修改qcow2默认密码
 
 ```bash
-virt-customize -a ubuntu-20.04-server-cloudimg-amd64.img --root-password password:123456
+chown 107:107 ubuntu-22.04-server-cloudimg-amd64.img
+export LIBGUESTFS_BACKEND=direct
+virt-customize -a ubuntu-22.04-server-cloudimg-amd64.img --root-password password:123456
 ```
 
 制作qemu-utils deb包
@@ -752,6 +754,8 @@ git clone https://github.com/ipxe/ipxe.git
 cd ipxe/src
 make bin/undionly.kpxe
 make bin-x86_64-efi/ipxe.efi
+#arm64
+make bin-arm64-efi/ipxe.efi
 # 复制到tftp根目录
 mv bin/undionly.kpxe /data/pxeboot/
 mv bin-x86_64-efi/ipxe.efi /data/pxeboot/
@@ -770,12 +774,15 @@ docker run -d --cap-add=NET_ADMIN \
   -d -q \
   --dhcp-range=192.168.1.120,192.168.1.250 \
   --enable-tftp --tftp-root=/var/lib/tftpboot \
-  --dhcp-match=set:efi64,option:client-arch,9 \
-  --dhcp-boot=tag:efi64,ipxe.efi \
+  --dhcp-match=set:bios,option:client-arch,0 \
+  --dhcp-boot=tag:bios,undionly.kpxe \
   --dhcp-match=set:efibc,option:client-arch,7 \
   --dhcp-boot=tag:efibc,ipxe.efi \
-  --dhcp-match=set:bios,option:client-arch,0 \
-  --dhcp-boot=tag:bios,pxelinux.0 \
+  --dhcp-match=set:efi64,option:client-arch,9 \
+  --dhcp-boot=tag:efi64,ipxe.efi \
+  --dhcp-match=set:aarch64,option:client-arch,11 \
+  --dhcp-boot=tag:aarch64,ipxe-arm.efi \
+  --dhcp-userclass=set:ipxe,iPXE \
   --dhcp-boot=tag:ipxe,http://192.168.1.101:5000/boot.ipxe \
   --port=0 \
   --log-queries \
