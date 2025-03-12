@@ -102,23 +102,63 @@ reboot
 virsh net-list --all
 
 # 创建虚拟磁盘
-qemu-img create -f qcow2 ubuntu22.04-amd64-uefi.qcow2 20G
+qemu-img create -f qcow2 ubuntu22.04-amd64-bios.qcow2 20G
 
 # 使用默认网络启动虚拟机
 virt-install \
   --name ubuntu22.04 \
   --ram 2048 \
   --vcpus 2 \
-  --disk path=/home/jupiter/workspace/ubuntu22.04-amd64-uefi.qcow2,size=20 \
-  --cdrom /home/jupiter/workspace/ubuntu-22.04.5-live-server-amd64.iso \
+  --disk path=/data/workspace/ubuntu22.04-amd64-bios.qcow2,size=20 \
+  --cdrom /data/workspace/ubuntu-22.04.5-live-server-amd64.iso \
   --network network=default \
   --vnc --vncport=5911 --vnclisten=0.0.0.0
 
-# vnc连接
+# iso安装完成后使用 virsh edit ubuntu22.04移除cdrom
 
-# 分区
+# 默认是lagcy启动
+virsh list --all
+virsh shutdown ubuntu22.04 
 ```
 
+```bash
+# 创建uefi虚拟机
+# CentOS/RHEL
+dnf install -y edk2-ovmf      
+# Ubuntu/Debian /usr/share/OVMF
+apt install ovmf 
+
+qemu-img create -f qcow2 ubuntu22.04-amd64-uefi.qcow2 20G
+
+virt-install \
+  --name ubuntu22.04uefi \
+  --memory 2048 \
+  --vcpus 2 \
+  --disk path=/data/workspace/ubuntu22.04-amd64-uefi.qcow2,size=20 \
+  --cdrom /data/workspace/ubuntu-22.04.5-live-server-amd64.iso \
+  --boot loader=/usr/share/OVMF/OVMF_CODE.fd \
+  --network network=default \
+  --vnc --vncport=5912 --vnclisten=0.0.0.0
+```
+
+```bash
+# 磁盘压缩
+
+# 虚拟机中执行
+dd if=/dev/zero of=/junk  # 创建占满剩余空间的文件
+rm -f /junk              # 删除临时文件
+sync 
+
+# 宿主机执行
+qemu-img convert -O qcow2 -c ubuntu22.04-amd64-uefi.qcow2 ubuntu22.04-amd64-uefi-zip.qcow
+```
+
+```bash
+# 若qcow2中安装的为非ubuntu的系统
+# 再将qcow2灌装到nvme硬盘中会无法展开镜像
+# 在qcow2系统关机前执行
+dracut --force --add-drivers "nvme_core nvme nvme_fabrics megaraid_sas mpt3sas smartpqi sssraid i40e ixgbe txgbe bnxt_en ice mlx5_core mlx4_core" /boot/initramfs-$(uname -r).img $(uname -r)
+```
 
  
  
