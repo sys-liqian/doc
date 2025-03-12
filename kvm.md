@@ -97,5 +97,28 @@ reboot
 
 
 
+```bash
+# 检查default网络是否开启
+virsh net-list --all
+
+# 创建虚拟磁盘
+qemu-img create -f qcow2 ubuntu22.04-amd64-uefi.qcow2 20G
+
+# 使用默认网络启动虚拟机
+virt-install \
+  --name ubuntu22.04 \
+  --ram 2048 \
+  --vcpus 2 \
+  --disk path=/home/jupiter/workspace/ubuntu22.04-amd64-uefi.qcow2,size=20 \
+  --cdrom /home/jupiter/workspace/ubuntu-22.04.5-live-server-amd64.iso \
+  --network network=default \
+  --vnc --vncport=5911 --vnclisten=0.0.0.0
+
+# vnc连接
+
+# 分区
+```
+
+
  
  

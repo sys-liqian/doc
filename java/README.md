@@ -6,7 +6,7 @@
 
 ### 1.1 TCP的三次握手
 
-![image-20210203171632918](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210203171632918.png)
+![image-20210203171632918](./image-storage/image-20210203171632918.png)
 
 **第一次握手**：建立连接时，客户端发送SYN包到服务器，之后客户端进入**SYN_SEND**状态，等待服务端确认
 
@@ -36,7 +36,7 @@ Server收到Client的SYN包之后，回复SYN-ACK之后确一直收不到Client�
 
 ### 1.3 TCP的四次挥手
 
-![image-20210203180049728](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210203180049728.png)
+![image-20210203180049728](./image-storage/image-20210203180049728.png)
 
 **第一次挥手**：Client向Server发送一个FIN包，关闭Client到Server的数据传输，发送后Client进入**FIN_WAIT_1**状					   态
 
@@ -76,7 +76,7 @@ Server收到Client的SYN包之后，回复SYN-ACK之后确一直收不到Client�
 
 ### 1.7 TCP的滑动窗口
 
-![image-20210203181828870](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210203181828870.png)
+![image-20210203181828870](./image-storage/image-20210203181828870.png)
 
 TCP 接收方缓存内有三种状态
 
@@ -176,7 +176,7 @@ TCP传输的可靠性来自**确认重传**，TCP滑动窗口的可靠性也来�
 
 ### 1.14 Socket通信流程
 
-![image-20210203191402341](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210203191402341.png)
+![image-20210203191402341](./image-storage/image-20210203191402341.png)
 
 
 
@@ -206,7 +206,7 @@ TCP传输的可靠性来自**确认重传**，TCP滑动窗口的可靠性也来�
 
 二叉树，B树，B+树，Hash，BitMap
 
-![image-20210204153601663](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210204153601663.png)
+![image-20210204153601663](./image-storage/image-20210204153601663.png)
 
 B+树特点：
 
@@ -225,7 +225,7 @@ B+树的优点：
 
 ### 2.5 密集索引和稀疏索引的区别
 
-![image-20210204154841992](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210204154841992.png)
+![image-20210204154841992](./image-storage/image-20210204154841992.png)
 
 聚簇索引：其叶子节点保存不仅仅是键值，还保存了位于同一行记录里的其他列的信息，找到了索引也就找到了数				   据，B+树是一种聚簇索引
 
@@ -377,7 +377,7 @@ java源码汇编成字节码，字节码在不同平台上的jvm执行时，会�
 
 ### 3.3 jvm组成部分
 
-![image-20210205162055891](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210205162055891.png)
+![image-20210205162055891](./image-storage/image-20210205162055891.png)
 
 Class Loader : 依据特定命令加载class文件
 
@@ -642,7 +642,7 @@ jvm有两种运行模式server以及client
 
 垃圾收集器之前的关系：
 
-![image-20210206165203010](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210206165203010.png)
+![image-20210206165203010](./image-storage/image-20210206165203010.png)
 
 - 新生代垃圾收集器：
 
@@ -1006,7 +1006,7 @@ synchronized锁的是对象，不是代码
 
    
 
-![image-20210208221925918](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210208221925918.png)
+![image-20210208221925918](./image-storage/image-20210208221925918.png)
 
 
 
@@ -1137,7 +1137,7 @@ synchronized 是非公平锁
 
 ### 6.10 线程池的状态
 
-![image-20210208232555450](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210208232555450.png)
+![image-20210208232555450](./image-storage/image-20210208232555450.png)
 
 1. Running：能够接收新任务，并且也能处理阻塞队列中的任务
 2. Shutdown：不在接收新任务，但是能处理存量任务
@@ -1155,7 +1155,7 @@ synchronized 是非公平锁
 
 ### 7.1 java异常架构
 
-![image-20210211130205915](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210211130205915.png)
+![image-20210211130205915](./image-storage/image-20210211130205915.png)
 
 - Error和Exception的区别：
 
@@ -1188,9 +1188,9 @@ synchronized 是非公平锁
 
 #### 7.2.1 集合框架图
 
-![image-20210211131453134](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210211131453134.png)
+![image-20210211131453134](./image-storage/image-20210211131453134.png)
 
-![image-20210211131503928](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210211131503928.png)
+![image-20210211131503928](./image-storage/image-20210211131503928.png)
 
 
 
@@ -1334,7 +1334,7 @@ synchronized 是非公平锁
 
 ### 8.1 Java IO流图
 
-![java_io_流](https://github.com/buddhistSystem/doc/blob/main/image-storage/java_io_流.jpg)
+![java_io_流](./image-storage/java_io_流.jpg)
 
 
 
@@ -1360,11 +1360,11 @@ synchronized 是非公平锁
 
   每有一个客户端连接就需要和Server建立一个线程
 
-  ![image-20210216014823210](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210216014823210.png)
+  ![image-20210216014823210](./image-storage/image-20210216014823210.png)
 
 - NIO(New IO)同步非阻塞IO
 
-  ![image-20210216014935931](https://github.com/buddhistSystem/doc/blob/main/image-storage/image-20210216014935931.png)
+  ![image-20210216014935931](./image-storage/image-20210216014935931.png)
 
   通道和缓冲区是NIO种的核心对象，几乎每一个IO操作都要使用它们
 
