@@ -141,9 +141,8 @@ virt-install \
   --vnc --vncport=5912 --vnclisten=0.0.0.0
 ```
 
+磁盘压缩
 ```bash
-# 磁盘压缩
-
 # 虚拟机中执行
 dd if=/dev/zero of=/junk  # 创建占满剩余空间的文件
 rm -f /junk              # 删除临时文件
@@ -153,11 +152,39 @@ sync
 qemu-img convert -O qcow2 -c ubuntu22.04-amd64-uefi.qcow2 ubuntu22.04-amd64-uefi-zip.qcow
 ```
 
+重新生成initramfs
 ```bash
 # 若qcow2中安装的为非ubuntu的系统
 # 再将qcow2灌装到nvme硬盘中会无法展开镜像
 # 在qcow2系统关机前执行
 dracut --force --add-drivers "nvme_core nvme nvme_fabrics megaraid_sas mpt3sas smartpqi sssraid i40e ixgbe txgbe bnxt_en ice mlx5_core mlx4_core" /boot/initramfs-$(uname -r).img $(uname -r)
+```
+
+openeuler
+```bash
+virt-install \
+  --name openeuler22.03 \
+  --memory 2048 \
+  --vcpus 2 \
+  --disk path=/data/workspace/openeuler22.03-amd64.qcow2,size=20 \
+  --cdrom /data/workspace/openEuler-22.03-LTS-SP4-x86_64-dvd.iso \
+  --os-variant generic \
+  --os-type linux \
+  --boot loader=/usr/share/OVMF/OVMF_CODE.fd \
+  --network network=default \
+  --vnc --vncport=5913 --vnclisten=0.0.0.0
+```
+
+使用现有磁盘直接启动
+```bash
+virt-install \
+--name openeuler22.03 \
+--ram 2048 \
+--vcpus 2 \
+--disk path=/data/workspace/openeuler22.03-amd64-zip.qcow2,size=20 \
+--import \ 
+--network network=default \
+--vnc --vncport=5913 --vnclisten=0.0.0.0
 ```
 
  
