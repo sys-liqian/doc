@@ -158,6 +158,10 @@ qemu-img convert -O qcow2 -c ubuntu22.04-amd64-uefi.qcow2 ubuntu22.04-amd64-uefi
 # 再将qcow2灌装到nvme硬盘中会无法展开镜像
 # 在qcow2系统关机前执行
 dracut --force --add-drivers "nvme_core nvme nvme_fabrics megaraid_sas mpt3sas smartpqi sssraid i40e ixgbe txgbe bnxt_en ice mlx5_core mlx4_core" /boot/initramfs-$(uname -r).img $(uname -r)
+
+# centos7 sssraid txgbe无法加载
+# centos7 在kvm中可以正常运行，灌装后裸金属无法运行，需要进入救援模式重新生成initramfs
+dracut --force --add-drivers "nvme_core nvme nvme_fabrics megaraid_sas mpt3sas smartpqi i40e ixgbe bnxt_en ice mlx5_core mlx4_core" /boot/initramfs-$(uname -r).img $(uname -r)
 ```
 
 openeuler
@@ -182,9 +186,28 @@ virt-install \
 --ram 2048 \
 --vcpus 2 \
 --disk path=/data/workspace/openeuler22.03-amd64-zip.qcow2,size=20 \
---import \ 
+--import \
+--os-variant generic \
+--os-type linux \
+--boot loader=/usr/share/OVMF/OVMF_CODE.fd \
 --network network=default \
 --vnc --vncport=5913 --vnclisten=0.0.0.0
+```
+
+centos7 修改udev格式network name
+```bash
+# iso CentOS-7-x86_64-DVD-2009.iso
+
+# 增加 net.ifnames=1 biosdevname=0 console=ttyS0,115200n8 配置
+# console=ttyS0,115200n8用于virsh console 连接虚拟机
+vi /etc/default/grub
+GRUB_CMDLINE_LINUX="crashkernel=auto rd.lvm.lv=centos/root rhgb net.ifnames=1 biosdevname=0 quiet"
+
+# 重新生成grub
+# lagcy
+grub2-mkconfig -o /boot/grub2/grub.cfg
+# uefi
+grub2-mkconfig -o /boot/efi/EFI/centos/grub.cfg
 ```
 
  
