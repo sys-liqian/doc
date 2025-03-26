@@ -337,4 +337,52 @@ echo 0000:06:10.0 > /sys/bus/pci/drivers_probe
 echo 0 > /sys/class/net/ens3f0/device/sriov_numvfs
 ```
 
+## kvm虚拟机添加nvme硬盘
+
+```bash
+qemu-img create -f qcow2 /data/workspace/nvme_local.qcow2 20G
+qemu-img create -f raw  /data/workspace/nvme.raw 10G
+
+virt-install \
+  --name nvme \
+  --memory 2048 \
+  --vcpus 2 \
+  --disk path=/data/workspace/nvme_local.qcow2,size=20 \
+  --cdrom /data/workspace/ubuntu-22.04.5-live-server-amd64.iso \
+  --os-variant ubuntu22.04 \
+  --boot loader=/usr/share/OVMF/OVMF_CODE.fd \
+  --network network=default \
+  --vnc --vncport=5916 --vnclisten=0.0.0.0
+
+# 安装完成后关闭虚拟机
+virsh destory nvme
+virsh edit nvme
+# 删除cdrom disk
+
+# 增加qemu:commandline
+# domain第一行增加 xmlns:qemu
+# qemu:commandlinne 一定加在最后
+<domain type='kvm' xmlns:qemu='http://libvirt.org/schemas/domain/qemu/1.0'>
+  <qemu:commandline>
+    <qemu:arg value='-drive'/>
+    <qemu:arg value='file=/data/workspace/nvme.raw,if=none,id=D22,format=raw'/>
+    <qemu:arg value='-device'/>
+    <qemu:arg value='nvme,drive=D22,serial=1235'/>
+  </qemu:commandline>
+</domain>
+
+# 问题：
+# 1. Could not open '/data/workspace/nvme.raw': Permission denied
+chown libvirt-qemu:kvm nvme.raw 
+
+ln -s /etc/apparmor.d/usr.sbin.libvirtd  /etc/apparmor.d/disable/
+ln -s /etc/apparmor.d/usr.lib.libvirt.virt-aa-helper  /etc/apparmor.d/disable/
+apparmor_parser -R  /etc/apparmor.d/usr.sbin.libvirtd
+apparmor_parser -R  /etc/apparmor.d/usr.lib.libvirt.virt-aa-helper
+
+vim /etc/libvirt/qemu.conf
+# 设置 security_driver = "none"
+
+systemctl restart libvirtd
+```
  
