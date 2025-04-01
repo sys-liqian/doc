@@ -9,8 +9,11 @@ wget -O /etc/yum.repos.d/daos-packages.repo https://packages.daos.io/v2.0/EL8/pa
 yum install -y epel-release
 # 在服务节点安装 daos-server
 yum install -y daos-server
-# 在管理节点和客户端节点安装 daos-client
+# 在管理节点和客户端节点安装 daos-client dao-agent 属于daos-client
 yum install -y daos-client
+
+systemctl stop firewalld
+systemctl disable firewalld
 
 # 启动server
 mkdir -p /var/log/daos
@@ -124,6 +127,11 @@ daos container list test_pool
 # 文档地址
 # https://spdk.io/doc/nvmf.html
 
+# 内核开启nvme相关驱动
+dracut --force --add-drivers "nvme nvme_core nvme_fabrics"
+reboot
+modprobe nvme nvme_core nvme_fabrics
+
 # 安装daos开发库
 yum install -y daos-devel
 # 升级python到3.9
@@ -158,15 +166,62 @@ scripts/setup.sh
 # 运行nvmf_tgt,虚拟机只有一个Numa Node无需指定-m
 cd build/bin
 nohup nvmf_tgt > nvmf_tgt.log 2>&1 &
+```
 
-# 创建transport
-# -t 类型 TCP/RDMA
-# -u IO传输单位大小（byte）16KB
-# -m Max number of IO qpairs per controller
-# -c Max number of in-capsule data size
+## SPDK RPC API
+```bash
+# SPDK查看rpc支持的所有方法
+scripts/rpc.py rpc_get_methods
+
+# SPDK创建transport
 scripts/rpc.py nvmf_create_transport -t TCP -u 16384 -m 8 -c 8192
 
-# 在Daos DFS 上创建SPDK bdev 块设备
-# spdk daos bdev 与 daos 通信，需要在spdk 所在节点暗转 daos_agent
-rpc.py bdev_daos_create daosdev0 test-pool test-cont 64 4096
+# SPDK查看transport
+scripts/rpc.py nvmf_get_transports
+
+### 注意  ###
+### spdk daos bdev 与 daos 通信，需要在spdk 所在节点安装 daos_agent ###
+
+# SPDK在Daos DFS 上创建SPDK bdev 块设备
+scripts/rpc.py bdev_daos_create daosdev0 test_pool test-cont 64 4096
+
+# SPDK查看bdev
+scripts/rpc.py bdev_get_bdevs
+
+# SPDK创建subsystem
+scripts/rpc.py nvmf_create_subsystem nqn.2016-06.io.spdk:cnode1 -a -s SPDK00000000000001 -d SPDK_Controller1
+
+# SPDK查看subsystem, subsystem中包含该subsystem的namespaces
+scripts/rpc.py nvmf_get_subsystems
+
+# SPDK子系统添加命名空间
+scripts/rpc.py nvmf_subsystem_add_ns nqn.2016-06.io.spdk:cnode1 daosdev0
+
+# SPDK添加监听
+scripts/rpc.py nvmf_subsystem_add_listener nqn.2016-06.io.spdk:cnode1 -t tcp -a 192.168.122.78 -s 4420
+
+# SPDK查看监听
+scripts/rpc.py nvmf_subsystem_get_listeners nqn.2016-06.io.spdk:cnode1
+
+# 客户端挂载设备
+nvme discover -t tcp -a 192.168.122.78 -s 4420
+nvme connect -t tcp -n nqn.2016-06.io.spdk:cnode1 -a 192.168.122.78
+
+# 客户端查看nvme设备
+nvme list
+
+# 客户端取消挂载
+nvme disconnect -n nqn.2016-06.io.spdk:cnode1
+
+# SPDK取消监听
+scripts/rpc.py nvmf_subsystem_remove_listener nqn.2016-06.io.spdk:cnode1 -t tcp -a 192.168.122.78 -s 4420
+
+# SPDK移除subsystem的namespace rpc.py nvmf_subsystem_remove_ns nqn nsid
+scripts/rpc.py nvmf_subsystem_remove_ns nqn.2016-06.io.spdk:cnode1 1
+
+# SPDK 移除subsystem
+scripts/rpc.py nvmf_delete_subsystem nqn.2016-06.io.spdk:cnode1
+
+# SPDK 移除 bdev 块
+scripts/rpc.py bdev_daos_delete
 ```
