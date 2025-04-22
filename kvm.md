@@ -385,4 +385,20 @@ vim /etc/libvirt/qemu.conf
 
 systemctl restart libvirtd
 ```
+
+## 复制虚拟机
+
+```bash
+# 通过复制qcow2启动了新的虚拟机
+# rockylinux8
+# 更改ip主机名后
+# 客户端连接时，仍任保持了之前的ssh认证信息
+
+# 删除所有旧的主机密钥文件
+sudo rm /etc/ssh/ssh_host_*
+# 重新生成密钥
+sudo ssh-keygen -A 
+# 重启sshd
+sudo systemctl restart sshd
+```
  
