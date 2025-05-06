@@ -49,3 +49,23 @@ yum install docker-ce docker-ce-cli
 docker version
 systemctl restart docker
 ```
+
+## volcano-agent 报错
+```bash
+E0506 16:34:09.563868       1 resource_usage_getter.go:113] "Failed to collector cpu metric" err="open /host/sys/fs/cgroup/memory/kubepods/memory.stat: no such file or directory" resType="memory"
+E0506 16:34:09.760496       1 resource_usage_getter.go:113] "Failed to collector cpu metric" err="open /host/sys/fs/cgroup/cpu/kubepods/cpuacct.usage: no such file or directory" resType="cpu"
+```
+
+解决办法
+```bash
+# volcano 1.11.2 agent当前仅支持 openeuler cgroup v1
+# /var/lib/kubelet/config.yaml 中修改cgroupDriver为cgroupfs
+
+# docker info
+# dodcker 使用 cgroupfs
+
+# 重新部署volcano
+
+# volcano agent 配置
+kubectl get cm -n volcano-system volcano-agent-configuration -o yaml
+```

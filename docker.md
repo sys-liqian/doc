@@ -66,3 +66,12 @@ docker volume rm $(docker volume ls -qf dangling=true)
 docker system prune
 ```
 
+## 国内代理
+```json
+{
+  "registry-mirrors":["https://registry.docker-cn.com","https://docker.mirrors.ustc.edu.cn","https://ustc-edu-cn.mirror.aliyuncs.com","https://qbd2mtyh.mirror.aliyuncs.com","https://docker.registry.cyou","https://docker-cf.registry.cyou","https://dockercf.jsdelivr.fyi","https://docker.jsdelivr.fyi","https://dockertest.jsdelivr.fyi","https://mirror.aliyuncs.com","https://dockerproxy.com","https://mirror.baidubce.com","https://docker.m.daocloud.io","https://docker.nju.edu.cn","https://docker.mirrors.sjtug.sjtu.edu.cn","https://docker.mirrors.ustc.edu.cn","https://mirror.iscas.ac.cn","https://dockerhub.icu","https://docker.rainbond.cc"],
+  "insecure-registries":[],
+  "data-root": "/data/docker"
+}
+```
+
