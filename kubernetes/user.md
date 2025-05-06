@@ -55,6 +55,24 @@ kubectl config set-context test@k8s \
     --cluster=k8s \
     --user=test \
     --kubeconfig=/home/jupiter/workspace/account/test.conf
+
+# test用户使用token认证
+kubectl config set-cluster k8s --server=https://10.122.196.159:6443 \
+    --certificate-authority=/etc/kubernetes/pki/ca.crt \
+    --embed-certs=true \
+    --kubeconfig=/home/jupiter/workspace/account/test-token.conf
+
+kubectl config set-credentials test \
+  --token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6InRlc3QiLCJpYXQiOjE1MTYyMzkwMjJ9.tRF6jrkFnCfv6ksyU-JwVq0xsW3SR3y5cNueSTdHdAg \
+  --kubeconfig=/home/jupiter/workspace/account/test-token.conf
+
+kubectl config set-context test@k8s \
+    --cluster=k8s \
+    --user=test \
+    --kubeconfig=/home/jupiter/workspace/account/test-token.conf
+
+# 检查账户权限
+kubectl auth can-i get pods --as=test -n volcano-system
 ```
 
 创建RBAC文件
