@@ -221,6 +221,38 @@ subjects:
 
 ```
 
+生成集群admin-token
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kube-system  # 建议在 kube-system 命名空间创建
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user-binding
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin  # 内置的超级管理员角色
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: kube-system
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: admin-user-sa-secret  # 自定义 Secret 名称
+  namespace: kube-system
+  annotations:
+    kubernetes.io/service-account.name: "admin-user"  # 绑定到指定 ServiceAccount
+type: kubernetes.io/service-account-token  # secret类型
+```
+
+
 测试
 ```bash
 # test只有查看权限
