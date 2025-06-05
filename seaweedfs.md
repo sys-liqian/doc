@@ -278,8 +278,14 @@ curl -X DELETE http://10.119.108.53:8888/tst/tst.txt
 
 * s3 api
 ```bash
+yum update
+yum install s3cmd
 # s3cmd 配置
 s3cmd --configure
+# 修改/etc/hosts 为目标配置域名
+# 配置后修改~/.s3cfg
+# host_base = seaweedfs.com:7203
+# host_bucket = seaweedfs.com:7203/%(bucket)
 # S3 Endpoint不能使用ip,可以在本地hosts配置一个域名
   Access Key: testak
   Secret Key: testsk
