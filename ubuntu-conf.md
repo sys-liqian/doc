@@ -24,3 +24,17 @@ sudo reboot
 stat -fc %T /sys/fs/cgroup/
 # tmpfs为cgroup v1,cgroup2fs为 v2
 ```
+
+### 虚拟机双网卡配置
+```yaml
+# 不要指定默认路由
+network:
+    ethernets: {}
+    version: 2
+    ethernets:
+      eth0:
+        addresses:
+        - 192.168.1.102/24
+      eth1:
+        dhcp4: true
+```
