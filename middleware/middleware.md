@@ -61,3 +61,18 @@ docker run --restart always --network kind --name registry --tmpfs /var/lib/regi
 ```bash
 docker run --name minio -d -p 9000:9000 -p 9090:9090 -d -e "MINIO_ACCESS_KEY=minioadmin" -e "MINIO_SECRET_KEY=minioadmin" -v /data/minio/data:/data -v /data/minio/config:/root/.minio minio/minio:latest server /data --console-address ":9090" -address ":9000"
 ```
+
+## Nacos
+
+### Docker
+
+```bash
+# http://localhost:18080/nacos username: nacos password: nacos
+docker run --name nacos-server \
+-p 18080:8080 -p 8848:8848 -p 9848:9848 \
+-e MODE=standalone \
+-e NACOS_AUTH_TOKEN="aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789+ab/cdefg==" \
+-e NACOS_AUTH_IDENTITY_KEY="serverIdentity" \
+-e NACOS_AUTH_IDENTITY_VALUE="a3F5gH9kLm2pO8sD1qW0eR7tY4uI6zXc" \
+-d nacos/nacos-server:v3.0.1
+```
