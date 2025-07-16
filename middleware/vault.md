@@ -31,12 +31,19 @@ listener "tcp" {
 ```
 * 启动
 ```bash
-vault server -config=./config.hcl
+nohup ./vault server -config=./config.hcl > output.log 2>&1 &
 ```
 
 * CLI配置环境变量
-```
+```bash
+# 默认使用https,如果没有写入/etc/profile,需要每次登录都执行
 export VAULT_ADDR='http://127.0.0.1:8200'
+```
+
+* 初始化
+```bash
+# 首次启动执行
+./vault operator init
 ```
 
 * 解封(默认需要使用3个key解封)
