@@ -51,6 +51,8 @@ Ceph和go-ceph版本支持对应关系，可在[Github](https://github.com/ceph/
 
 按需更改一下ceph.repo中rpm包版本，[镜像源](https://mirrors.ustc.edu.cn/ceph/)
 
+注意$basearch的值
+
 ```bash
 cat <<EOF >/etc/yum.repos.d/ceph.repo
 [ceph]
@@ -78,7 +80,61 @@ gpgcheck=1
 gpgkey=https://mirrors.ustc.edu.cn/ceph/keys/release.asc
 EOF
 ```
+或者使用阿里源
+
+```bash
+cat <<EOF >/etc/yum.repos.d/ceph.repo
+[ceph]
+name=Ceph packages for 
+baseurl=https://mirrors.aliyun.com/ceph/rpm-16.2.10/el8/aarch64/
+enabled=1
+priority=2
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/ceph/keys/release.asc
+
+[ceph-noarch]
+name=Ceph noarch packages
+baseurl=https://mirrors.aliyun.com/ceph/rpm-16.2.10/el8/noarch
+enabled=1
+priority=2
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/ceph/keys/release.asc
+
+[ceph-source]
+name=Ceph source packages
+baseurl=https://mirrors.aliyun.com/ceph/rpm-16.2.10/el8/SRPMS
+enabled=0
+priority=2
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/ceph/keys/release.asc
+EOF
+```
 
 ```bash
 dnf install libcephfs-devel librbd-devel librados-devel
+```
+
+kylin aarch64 安装开发包所需依赖
+```bash
+========================================================================================================================================================
+ Package                                 Architecture                   Version                                Repository                          Size
+========================================================================================================================================================
+Installing:
+ libcephfs-devel                         aarch64                        2:16.2.10-0.el8                        ceph                                25 k
+ librados-devel                          aarch64                        2:16.2.10-0.el8                        ceph                               121 k
+ librbd-devel                            aarch64                        2:16.2.10-0.el8                        ceph                                24 k
+Installing dependencies:
+ libcephfs2                              aarch64                        2:16.2.10-0.el8                        ceph                               715 k
+ librados2                               aarch64                        2:16.2.10-0.el8                        ceph                               3.3 M
+ libradospp-devel                        aarch64                        2:16.2.10-0.el8                        ceph                                31 k
+ librbd1                                 aarch64                        2:16.2.10-0.el8                        ceph                               2.9 M
+ lttng-ust                               aarch64                        2.10.1-8.ky10                          ks10-adv-os                        186 k
+ rdma-core                               aarch64                        35.0-3.ky10                            ks10-adv-os                        778 k
+ rdma-core-help                          noarch                         35.0-3.ky10                            ks10-adv-os                        392 k
+Installing weak dependencies:
+ lttng-ust-help                          noarch                         2.10.1-8.ky10                          ks10-adv-os                         74 k
+
+Transaction Summary
+========================================================================================================================================================
+Install  11 Packages
 ```
