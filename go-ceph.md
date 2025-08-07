@@ -138,3 +138,15 @@ Transaction Summary
 ========================================================================================================================================================
 Install  11 Packages
 ```
+
+Dockerfile ceph:v16.2.7中使用的Centos-8 源已过期，这里用aliyun源替代
+```bash
+FROM quay.io/ceph/ceph:v16.2.7
+RUN mv /etc/yum.repos.d/*.repo /tmp/
+RUN curl -o /etc/yum.repos.d/CentOS-Base.repo https://mirrors.aliyun.com/repo/Centos-vault-8.5.2111.repo
+RUN yum -y install file && yum clean all
+
+COPY nsenter /nsenter
+COPY plugin.csi.com /plugin.csi.com
+RUN chmod +x /plugin.csi.com&&chmod +x /nsenter
+ENTRYPOINT ["/plugin.csi.com"]
