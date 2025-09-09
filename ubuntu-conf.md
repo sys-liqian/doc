@@ -10,6 +10,14 @@ touch jupiter
 jupiter ALL=(ALL) NOPASSWD: NOPASSWD: ALL
 ```
 
+## ubuntu 20.04 配置用户免密sudo
+```bash
+# ubuntu 20.04 在/etc/sudoers.d 下配置用户免密，并不生效
+# 使用visudo直接修改
+visudo 
+appadmin ALL=(ALL:ALL) NOPASSWD: ALL
+```
+
 ### 配置cgroupv2 到 cgroupv1
 ```bash
 vim /etc/default/grup
