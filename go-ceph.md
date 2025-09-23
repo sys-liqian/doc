@@ -139,6 +139,42 @@ Transaction Summary
 Install  11 Packages
 ```
 
+## 在Ubuntu中安装Ceph开发库
+
+Ubuntu 20.04
+```bash
+uname -a
+Linux node-141 5.15.0-139-generic #149~20.04.1-Ubuntu SMP Wed Apr 16 08:29:56 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux
+```
+
+配置源
+
+```bash
+mv /etc/apt/sources.list /etc/apt/sources.list.bak
+
+cat <<EOF >/etc/apt/sources.list
+deb http://mirrors.aliyun.com/ubuntu/ focal main restricted universe multiverse
+deb-src http://mirrors.aliyun.com/ubuntu/ focal main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ focal-security main restricted universe multiverse
+deb-src http://mirrors.aliyun.com/ubuntu/ focal-security main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ focal-updates main restricted universe multiverse
+deb-src http://mirrors.aliyun.com/ubuntu/ focal-updates main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ focal-proposed main restricted universe multiverse
+deb-src http://mirrors.aliyun.com/ubuntu/ focal-proposed main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ focal-backports main restricted universe multiverse
+deb-src http://mirrors.aliyun.com/ubuntu/ focal-backports main restricted universe multiverse
+deb https://mirrors.aliyun.com/ceph/debian-reef/ focal main
+# deb-src https://mirrors.aliyun.com/ceph/debian-reef/ focal main
+EOF
+```
+
+```bash
+apt install libcephfs-dev librbd-dev librados-dev
+```
+
+
+# Dockerfile
+
 Dockerfile ceph:v16.2.7中使用的Centos-8 源已过期，这里用aliyun源替代
 ```bash
 FROM quay.io/ceph/ceph:v16.2.7
