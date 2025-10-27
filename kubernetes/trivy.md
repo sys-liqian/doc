@@ -139,6 +139,14 @@ trivy k8s \
 trivy k8s --compliance=k8s-cis-1.23 --report all  \
 --node-collector-imageref registry-dev.xcloud.lenovo.com:18083/aquasecurity/node-collector:0.3.1 \
 --debug --skip-db-update --skip-java-db-update --skip-check-update
+
+# csi 扫描自定义规则
+# https://github.com/aquasecurity/trivy-checks/blob/31e779916f3863dd74a28cee869ea24fdc4ca8c2/specs/compliance/k8s-cis-1.23.yaml
+
+# --report all 不知为什么没输出
+trivy k8s --compliance=@/root/k8s-cis-1.23.yaml --report summary  \
+--node-collector-imageref registry-dev.xcloud.lenovo.com:18083/aquasecurity/node-collector:0.3.1 \
+--debug --skip-db-update --skip-java-db-update --skip-check-update
 ```
 
 ## trivy server
@@ -174,4 +182,12 @@ trivy image --server http://10.122.166.104:10000 registry-dev.xcloud.lenovo.com:
 --scanners vuln,secret,misconfig,license
 ```
 
+## 源码编译trivy
 
+```bash
+cd cmd/trivy
+# trivy 使用了jsonv2特性，需要添加编译标签
+go build -tags=goexperiment.jsonv2 -o trivy
+
+
+```
