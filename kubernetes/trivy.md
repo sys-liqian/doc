@@ -51,6 +51,9 @@ tar -zxvf bundle.tar.gz
 ## 推送漏洞库到nexus
 
 ```bash
+#  注意，推送时必须使用相对路径./db.tar.gz
+#  使用绝对路径会导致下载失败
+#  Fatal error     run error: init error: DB error: failed to download vulnerability DB: OCI artifact error: failed to download vulnerability DB: failed to download artifact from registry-dev.xcloud.lenovo.com:18083/aquasecurity/trivy-db:2: oci download error: failed to create a temp file: open /tmp/trivy-20911/oci-download-4109815648/data/sync_trivydb/db.tar.gz: no such file or directory
 #  查看制品type
 #  oras manifest fetch ghcr.nju.edu.cn/aquasecurity/trivy-checks:1
 oras push  registry-dev.xcloud.lenovo.com:18083/aquasecurity/trivy-db:2 \
