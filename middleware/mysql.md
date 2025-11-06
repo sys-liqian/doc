@@ -115,7 +115,6 @@ show slave status\G;
 
 ### 测试从库只读
 
-
 ```bash
 # 登录主库
 docker exec -it mysql-master mysql -uroot -pmysql-1234 
@@ -138,6 +137,38 @@ USE testdb; CREATE TABLE t1(id INT PRIMARY KEY); INSERT INTO t1 VALUES(4);
 
 # 预期输出
 # ERROR 1290 (HY000): The MySQL server is running with the --read-only option so it cannot execute this statement
+```
+
+### 主备切换
+
+```bash
+# 配置从库为新主库并允许写入
+docker exec -it mysql-mslave mysql -uroot -pmysql-1234
+
+STOP SLAVE; RESET SLAVE ALL;
+
+# 取消只读
+SET GLOBAL read_only=OFF;
+# 设置半同步参数
+SET GLOBAL rpl_semi_sync_master_enabled=ON;
+SET GLOBAL rpl_semi_sync_slave_enabled=OFF;
+
+
+# 原主库降级为从库
+docker exec -it mysql-master mysql -uroot -pmysql-1234
+
+SET GLOBAL read_only=ON;
+CHANGE MASTER TO
+  MASTER_HOST='10.122.166.115', 
+  MASTER_PORT=13307,        
+  MASTER_USER='repl',
+  MASTER_PASSWORD='repl-1234',
+  MASTER_AUTO_POSITION=1;
+START SLAVE;
+
+# 在原主库测试写入，报错
+docker exec -it mysql-master mysql -utestuser -ptestuser-1234
+USE testdb; INSERT INTO t1 VALUES(2000);
 ```
 
 ### 测试备份
@@ -179,7 +210,7 @@ chown -R mysql:mysql /data/mysql
 chmod -R 755 /data/mysql
 
 # 使用 percona/percona-xtrabackup:2.4 备份 MySQL 到 S3
-docker run --rm  -it \
+docker run --rm  -it --name backup \
     --network host \
     -v /data/mysql/master/data:/var/lib/mysql \
     -e AWS_ACCESS_KEY_ID=minioadmin \
@@ -194,10 +225,114 @@ xtrabackup --backup \
     --password=mysql-1234 \
     --stream=xbstream \
     > /xtrabackup_backupfiles/backup-001.xbstream
+```
 
-    # aws --endpoint-url http://10.122.166.115:9000 s3 cp - s3://mysql-backup/backup-001.xbstream
+### binlog删除
 
+```bash
+# 执行过主备切换后 mysql-master已经是从库了，在从库执行备份
 
+# 在主库执行删除binlog
+docker exec -it mysql-master mysql -uroot -pmysql-1234
+
+# 查看binlog日志列表
+SHOW BINARY LOGS;
+# mysql> SHOW BINARY LOGS;
+# +------------------+-----------+
+# | Log_name         | File_size |
+# +------------------+-----------+
+# | mysql-bin.000001 |       177 |
+# | mysql-bin.000002 |   3084237 |
+# | mysql-bin.000003 |      5176 |
+# | mysql-bin.000004 |       194 |
+# +------------------+-----------+
+
+# 在主从上都删除mysql-bin.000004之前的日志
+PURGE BINARY LOGS TO 'mysql-bin.000004';
+```
+
+### binlog清除后创建新的slave
+
+```bash
+mkdir -p /data/mysql/slave/{conf,data}
+cat <<EOF >/data/mysql/slave/conf/my.cnf
+[mysqld]
+server-id=3
+gtid_mode=ON
+enforce_gtid_consistency=ON
+log-bin=mysql-bin
+binlog_format=ROW
+expire_logs_days = 1
+plugin-load = "semisync_master.so;semisync_slave.so"
+rpl_semi_sync_master_enabled = OFF
+rpl_semi_sync_master_timeout = 1000000000000000000
+rpl_semi_sync_master_wait_no_slave = OFF
+rpl_semi_sync_slave_enabled = ON
+read_only=ON
+log-slave-updates = on
+EOF
+
+docker run -d \
+  --name mysql-slave \
+  -e MYSQL_ROOT_PASSWORD=mysql-1234 \
+  -p 13308:3306 \
+  -v /data/mysql/slave/conf:/etc/mysql/conf.d \
+  -v /data/mysql/slave/data:/var/lib/mysql \
+  mysql:5.7
+
+docker exec -it mysql-slave mysql -uroot -pmysql-1234 
+
+CHANGE MASTER TO
+  MASTER_HOST='10.122.166.115',
+  MASTER_PORT=13307,
+  MASTER_USER='repl',
+  MASTER_PASSWORD='repl-1234',
+  MASTER_AUTO_POSITION=1;
+START SLAVE;
+
+# 因为主库的binlog已经被清除，slave无法拉取到数据，show slave status\G报错:
+# Got fatal error 1236 from master when reading data from binary log: 'The slave is connecting using CHANGE MASTER TO MASTER_AUTO_POSITION = 1, but the master has purged binary logs containing GTIDs that the slave requires. Replicate the missing transactions from elsewhere, or provision a new slave from backup. Consider increasing the master's binary log expiration period. The GTID set sent by the slave is '9e81ec41-b9f5-11f0-87ed-0242ac110006:1-5', and the missing transactions are '5c144016-b957-11f0-a2fa-0242ac110004:1-17, 5f502c0e-b957-11f0-b2b4-0242ac110005:1-6'.'
+
+# 恢复过程
+
+# 停止Slave的binlog
+SET sql_log_bin=0;
+
+# 注意挂载的文件夹权限
+# 注意mysql用户uid gid 都为999，检查/etc/group和/etc/passwd
+chown -R mysql:mysql /data/mysql/backup
+chmod 750 /data/mysql/backup/backup-001.xbstream
+docker run --rm  -it --name backup \
+    --network host \
+    -v /data/mysql/backup:/xtrabackup_backupfiles \
+    -e AWS_ACCESS_KEY_ID=minioadmin \
+    -e AWS_SECRET_ACCESS_KEY=xcloud@lenovo \
+    xtrabackup:2.4 bash
+
+# 解压
+mkdir /tmp/backup
+xbstream -x < /xtrabackup_backupfiles/backup-001.xbstream -C /xtrabackup_backupfiles/
+
+docker stop mysql-slave
+# 清理slave
+rm -rf /data/mysql/slave/data/*
+# 恢复数据
+cp -r /xtrabackup_backupfiles/* /data/mysql/slave/data/
+# 修改权限
+chown -R mysql:mysql /data/mysql/slave/data
+
+docker exec -it mysql-slave mysql -uroot -pmysql-1234
+SET sql_log_bin=1;
+CHANGE MASTER TO
+  MASTER_HOST='10.122.166.115',
+  MASTER_PORT=13307,
+  MASTER_USER='repl',
+  MASTER_PASSWORD='repl-1234',
+  MASTER_AUTO_POSITION=1;
+START SLAVE;
+
+# 查看Slave状态
+show slave status\G;
 ```
 
 ## 环境清理
@@ -206,7 +341,6 @@ xtrabackup --backup \
 docker stop mysql-master
 docker stop mysql-mslave
 docker stop minio
-
 
 docker rm -f mysql-master
 docker rm -f mysql-mslave
