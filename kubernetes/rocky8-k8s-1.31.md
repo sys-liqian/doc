@@ -213,3 +213,84 @@ sudo rm -rf /var/lib/kube*
 sudo rm -rf /etc/lib/etcd
 sudo rm -rf /var/lib/etcd
 ```
+
+### FAQ
+
+#### 节点Join后,calio-node pod,install-cni container无法启动
+
+vm2 calico-node报错如下
+
+```
+2025-12-03 05:51:24.856 [WARNING][1] cni-installer/winutils.go 150: Neither --kubeconfig nor --master was specified.  Using the inClusterConfig.  This might not work.
+2025-12-03 05:51:54.859 [ERROR][1] cni-installer/token_watch.go 108: Unable to create token for CNI kubeconfig error=Post "https://10.96.0.1:443/api/v1/namespaces/kube-system/serviceaccounts/calico-cni-plugin/token": dial tcp 10.96.0.1:443: i/o timeout
+2025-12-03 05:51:54.859 [FATAL][1] cni-installer/install.go 482: Unable to create token for CNI kubeconfig error=Post "https://10.96.0.1:443/api/v1/namespaces/kube-system/serviceaccounts/calico-cni-plugin/token": dial tcp 10.96.0.1:443: i/o timeout
+```
+
+环境描述
+
+
+* 虚机网络，双网卡，eth0 连接内网交换机 CIDR 192.168.1.0/24 网关 192.168.1.1/24，eth1 桥接宿主机网络，使用外网
+* k8s service cidr 在kubeadm-config.yaml 中定义为 10.96.0.0/12
+
+```bash
+# 由于k8s service cidr 为 10.96.0.0/12，创建的svc为
+kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   150m
+```
+
+解决步骤
+
+原因描述：节点双网卡默认路由导致，访问k8s cluster ip 走了默认路由，就没有走本地iptable
+Cluster IP (10.96.0.0/12 网段) 是集群内部的虚拟IP，不应该离开主机。内核应该通过一条 local 路由，将这些流量引导到本地的网络栈进行处理，然后由 kube-proxy 设置的 iptables 规则进行 DNAT
+
+```bash
+# vm2,默认路由
+[root@vm2 ~]# ip route get 10.96.0.1
+ip route
+default via 172.22.16.1 dev eth1 proto dhcp src 172.22.25.65 metric 101
+
+[root@vm2 ~]# ip route get 10.96.0.1
+ip route get 10.96.0.1
+10.96.0.1 via 172.22.16.1 dev eth1 src 172.22.25.65 uid 0 
+    cache 
+```
+
+```bash
+# 解决虚机 ip cidr和pod cidr 冲突，calico pod cidr默认为 192.168.0.0/16 和宿主机 eth0 cidr 冲突
+# 在calico 部署文件中修改以下配置，指定eth0, 和pod的cidr
+- name: CALICO_IPV4POOL_VXLAN
+  value: "Never"
+- name: CALICO_AUTODETECTION_METHOD
+  value: "interface=eth0"
+- name: IP_AUTODETECTION_METHOD
+  value: "interface=eth0"
+- name: CALICO_IPV4POOL_CIDR
+  value: "10.244.0.0/16"
+
+# kubelet 指定使用eth0 ip，所有机器都做此操作，并且重启kubelet
+[root@vm2 ~]# cat /etc/sysconfig/kubelet 
+KUBELET_EXTRA_ARGS='--node-ip 192.168.1.12'
+
+# 修改kube-proxy configmap 中的 clusterCIDR 为pod的cidr
+clusterCIDR: "10.244.0.0/16"
+
+## 在vm2将service cidr添加到路由表
+sudo ip route add local 10.96.0.0/12 dev lo
+
+## 删除所有kube-proxy,calico-node 进行重建
+```
+
+重建后vm2路由如下,blackhole黑洞路由，由calico创建，防止pod流量走默认路由
+
+```bash
+[root@vm2 ~]# ip route show
+default via 172.22.16.1 dev eth1 proto dhcp src 172.22.25.65 metric 101 
+blackhole 10.244.185.192/26 proto bird 
+10.244.225.0/26 via 192.168.1.11 dev tunl0 proto bird onlink 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+172.22.16.0/20 dev eth1 proto kernel scope link src 172.22.25.65 metric 101 
+192.168.1.0/24 dev eth0 proto kernel scope link src 192.168.1.12 metric 100 
+
+[root@vm2 ~]# ip route get 10.96.0.1
+local 10.96.0.1 dev lo src 10.96.0.1 uid 0 
+    cache <local> 
+```
