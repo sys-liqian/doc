@@ -51,7 +51,7 @@ systemctl enable kubelet && systemctl start kubelet
 ---
 安装[cri-docker](https://github.com/Mirantis/cri-dockerd/releases)
 ```bash
-tar -xf cri-dockerd-0.3.15.amd64.tgz
+tar -xf cri-dockerd-0.3.21.amd64.tgz
 mv cri-dockerd/cri-dockerd /usr/bin/
 chmod +x /usr/bin/cri-dockerd
 ```
@@ -162,7 +162,7 @@ etcd:
     dataDir: /var/lib/etcd
 imageRepository: registry.aliyuncs.com/google_containers #阿里镜像库
 kind: ClusterConfiguration
-kubernetesVersion: 1.31.0
+kubernetesVersion: 1.31.14
 networking:
   dnsDomain: cluster.local
   serviceSubnet: 10.96.0.0/12
